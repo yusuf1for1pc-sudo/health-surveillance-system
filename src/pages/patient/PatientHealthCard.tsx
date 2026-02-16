@@ -1,34 +1,24 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
-import { useMemo } from "react";
-
-// Deterministic QR-like pattern from a seed string
-const generateQrPattern = (seed: string) => {
-  const grid: boolean[][] = [];
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  for (let row = 0; row < 9; row++) {
-    grid[row] = [];
-    for (let col = 0; col < 9; col++) {
-      // Corner anchors
-      if ((row < 3 && col < 3) || (row < 3 && col > 5) || (row > 5 && col < 3)) {
-        grid[row][col] = (row === 0 || row === 2 || col === 0 || col === 2 || col === 6 || col === 8 || row === 6 || row === 8)
-          ? true
-          : (row === 1 && col === 1) || (row === 1 && col === 7) || (row === 7 && col === 1);
-      } else {
-        hash = ((hash * 31) + row * 7 + col * 13) | 0;
-        grid[row][col] = (hash & (1 << (col + row))) !== 0;
-      }
-    }
-  }
-  return grid;
-};
+import { QRCodeSVG } from "qrcode.react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PatientHealthCard = () => {
-  const patientId = "TMP-2026-0042";
-  const qrGrid = useMemo(() => generateQrPattern(patientId), [patientId]);
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <DashboardLayout role="patient">
+        <PageHeader title="Health Card" description="Your digital patient identification" />
+        <p className="text-sm text-muted-foreground text-center mt-8">Please sign in to view your health card.</p>
+      </DashboardLayout>
+    );
+  }
+
+  // Generate a deterministic patient ID from the user's id
+  const patientId = user.id.startsWith("demo-")
+    ? `TMP-2026-${user.id.slice(-4).replace(/\D/g, "0").padStart(4, "0")}`
+    : `TMP-${user.id.slice(0, 8).toUpperCase()}`;
 
   return (
     <DashboardLayout role="patient">
@@ -42,41 +32,41 @@ const PatientHealthCard = () => {
               <span className="text-primary-foreground font-bold">T</span>
             </div>
 
-            {/* Patient info */}
-            <h2 className="font-semibold text-foreground text-xl">John Doe</h2>
+            {/* Patient info from logged-in user */}
+            <h2 className="font-semibold text-foreground text-xl">{user.full_name}</h2>
             <p className="text-sm text-muted-foreground mt-1">Patient ID: {patientId}</p>
             <div className="flex justify-center gap-4 mt-3 text-xs text-muted-foreground">
-              <span>DOB: 1990-05-14</span>
-              <span>Blood: O+</span>
+              <span>{user.email}</span>
             </div>
 
-            {/* QR Code */}
+            {/* Real QR Code */}
             <div className="mt-6 mx-auto w-52 h-52 sm:w-56 sm:h-56 bg-background rounded-xl p-3 border flex items-center justify-center">
-              <div className="grid grid-cols-9 gap-[3px] w-full h-full">
-                {qrGrid.flat().map((filled, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-[2px] aspect-square ${filled ? "bg-foreground" : "bg-transparent"}`}
-                  />
-                ))}
-              </div>
+              <QRCodeSVG
+                value={patientId}
+                size={180}
+                level="H"
+                includeMargin={false}
+                bgColor="transparent"
+                fgColor="currentColor"
+                className="text-foreground w-full h-full"
+              />
             </div>
 
             <p className="text-xs text-muted-foreground mt-4">Scan to verify patient identity</p>
 
-            {/* Additional info */}
+            {/* Info from auth context */}
             <div className="mt-6 pt-4 border-t space-y-2 text-sm text-left">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone</span>
-                <span className="text-foreground font-medium">+1 555-0142</span>
+                <span className="text-muted-foreground">Name</span>
+                <span className="text-foreground font-medium">{user.full_name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Emergency</span>
-                <span className="text-foreground font-medium">+1 555-0199</span>
+                <span className="text-muted-foreground">Email</span>
+                <span className="text-foreground font-medium">{user.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Allergies</span>
-                <span className="text-foreground font-medium">Penicillin</span>
+                <span className="text-muted-foreground">Role</span>
+                <span className="text-foreground font-medium capitalize">{user.role.replace("_", " ")}</span>
               </div>
             </div>
           </div>

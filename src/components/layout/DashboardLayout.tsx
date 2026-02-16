@@ -1,10 +1,11 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ReactNode, useState } from "react";
 import {
   LayoutDashboard, Users, Building2, Shield, User, FileText,
   ClipboardList, Activity, AlertTriangle, BarChart3, Heart,
   History, CreditCard, Menu, X, LogOut, ChevronLeft
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavItem {
   label: string;
@@ -64,9 +65,16 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut, user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navItems = roleNavItems[role] || [];
   const themeClass = `theme-${role}`;
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <div className={`min-h-screen flex ${themeClass}`}>
@@ -77,9 +85,8 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r z-50 flex flex-col transition-transform lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="p-6 border-b flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -107,11 +114,10 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  isActive
-                    ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
               >
                 {item.icon}
                 {item.label}
@@ -120,14 +126,20 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        <div className="p-4 border-t">
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        <div className="p-4 border-t space-y-2">
+          {user && (
+            <div className="px-3 py-2">
+              <p className="text-sm font-medium text-foreground truncate">{user.full_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <LogOut className="w-5 h-5" />
             Sign Out
-          </Link>
+          </button>
         </div>
       </aside>
 

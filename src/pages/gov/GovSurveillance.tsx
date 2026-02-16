@@ -1,117 +1,226 @@
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import {
-  LineChart, Line, BarChart, Bar, AreaChart, Area,
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { useData } from "@/contexts/DataContext";
+import { format, subDays, isAfter, parseISO } from "date-fns";
 
-const trendData = [
-  { month: "Sep", influenza: 120, covid: 200, dengue: 45, tb: 30 },
-  { month: "Oct", influenza: 180, covid: 160, dengue: 80, tb: 35 },
-  { month: "Nov", influenza: 250, covid: 130, dengue: 120, tb: 40 },
-  { month: "Dec", influenza: 310, covid: 110, dengue: 140, tb: 50 },
-  { month: "Jan", influenza: 340, covid: 95, dengue: 150, tb: 60 },
-  { month: "Feb", influenza: 342, covid: 89, dengue: 156, tb: 67 },
+const COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--destructive))",
+  "#f59e0b",
+  "#8b5cf6",
+  "#10b981",
+  "#06b6d4",
+  "#ec4899",
+  "#6366f1",
+  "#84cc16",
 ];
 
-const icdData = [
-  { code: "J09", label: "Influenza", cases: 342 },
-  { code: "U07", label: "COVID-19", cases: 89 },
-  { code: "A90", label: "Dengue", cases: 156 },
-  { code: "A15", label: "TB", cases: 67 },
-  { code: "A09", label: "Gastroenteritis", cases: 43 },
-  { code: "B34", label: "Viral Infection", cases: 28 },
-];
+const dateRanges = ["Last 7 days", "Last 30 days", "Last 90 days", "Last 6 months", "Last 1 year"];
 
-const locationData = [
-  { region: "North", cases: 320, prev: 280 },
-  { region: "South", cases: 210, prev: 190 },
-  { region: "East", cases: 180, prev: 220 },
-  { region: "West", cases: 150, prev: 170 },
-  { region: "Central", cases: 290, prev: 250 },
-];
+const GovSurveillance = () => {
+  const { records, patients } = useData();
+  const [dateRange, setDateRange] = useState("Last 6 months");
 
-const GovSurveillance = () => (
-  <DashboardLayout role="gov">
-    <PageHeader title="Disease Surveillance" description="Monitor disease trends and patterns" />
+  // ─── Aggregation Logic ────────────────────────────────────
 
-    {/* Summary cards */}
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-      {[
-        { disease: "Influenza A", cases: 342, trend: "+12%" },
-        { disease: "COVID-19", cases: 89, trend: "-5%" },
-        { disease: "Dengue", cases: 156, trend: "+28%" },
-        { disease: "Tuberculosis", cases: 67, trend: "-3%" },
-      ].map((d) => (
-        <div key={d.disease} className="bg-card rounded-xl p-4 sm:p-5 card-shadow">
-          <p className="text-xs sm:text-sm text-muted-foreground">{d.disease}</p>
-          <div className="flex items-baseline justify-between mt-1">
-            <p className="text-xl sm:text-2xl font-semibold text-foreground">{d.cases}</p>
-            <span className={`text-xs sm:text-sm font-medium ${d.trend.startsWith("+") ? "text-destructive" : "text-accent-foreground"}`}>
-              {d.trend}
-            </span>
+  // Filter records by date range
+  const filteredRecords = useMemo(() => {
+    const now = new Date();
+    let daysToSubtract = 180;
+    if (dateRange === "Last 7 days") daysToSubtract = 7;
+    if (dateRange === "Last 30 days") daysToSubtract = 30;
+    if (dateRange === "Last 90 days") daysToSubtract = 90;
+    if (dateRange === "Last 1 year") daysToSubtract = 365;
+
+    const cutoff = subDays(now, daysToSubtract);
+    return records.filter(r => r.created_at && isAfter(parseISO(r.created_at), cutoff));
+  }, [records, dateRange]);
+
+  // 1. Disease Metrics (Cases by ICD Label/Disease)
+  const diseaseMetrics = useMemo(() => {
+    const counts: Record<string, { cases: number, code: string }> = {};
+    filteredRecords.forEach(r => {
+      const label = r.icd_label || r.diagnosis || "Unknown";
+      if (!counts[label]) counts[label] = { cases: 0, code: r.icd_code || "?" };
+      counts[label].cases++;
+    });
+
+    return Object.entries(counts)
+      .map(([disease, { cases, code }]) => ({ disease, cases, icd_code: code }))
+      .sort((a, b) => b.cases - a.cases);
+  }, [filteredRecords]);
+
+  // 2. Trend Data (Cases over time)
+  const trendData = useMemo(() => {
+    const data: Record<string, Record<string, number>> = {};
+
+    filteredRecords.forEach(r => {
+      const date = parseISO(r.created_at);
+      const key = format(date, "MMM yyyy"); // Group by Month (or day if shorter range?)
+      // For short ranges, maybe "MMM dd"
+
+      const label = r.icd_label || "Other";
+      if (!data[key]) data[key] = {};
+      if (!data[key][label]) data[key][label] = 0;
+      data[key][label]++;
+    });
+
+    return Object.entries(data).map(([month, diseases]) => ({
+      month,
+      ...diseases
+    }));
+  }, [filteredRecords]);
+
+  // 3. Region Data (Cases by Patient City/State)
+  const regionData = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    filteredRecords.forEach(r => {
+      const patient = patients.find(p => p.id === r.patient_id || p.patient_id === r.patient_id);
+      const region = patient?.city || patient?.state || "Unknown";
+      counts[region] = (counts[region] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+      .map(([region, cases]) => ({ region, cases }))
+      .sort((a, b) => b.cases - a.cases)
+      .slice(0, 10);
+  }, [filteredRecords, patients]);
+
+  // Pie Data
+  const pieData = diseaseMetrics.slice(0, 6).map((d) => ({
+    name: d.disease,
+    value: d.cases,
+  }));
+
+  return (
+    <DashboardLayout role="gov">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <PageHeader title="Disease Surveillance" description="Monitor disease trends and patterns" />
+        <select
+          value={dateRange}
+          onChange={(e) => setDateRange(e.target.value)}
+          className="h-9 rounded-lg border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:w-44"
+        >
+          {dateRanges.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        {diseaseMetrics.length === 0 ? (
+          <div className="col-span-full py-8 text-center text-muted-foreground bg-card rounded-xl border border-dashed">
+            No data available for this period.
+          </div>
+        ) : (
+          diseaseMetrics.slice(0, 4).map((d) => (
+            <div key={d.disease} className="bg-card rounded-xl p-4 sm:p-5 card-shadow">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{d.disease}</p>
+              <div className="flex items-baseline justify-between mt-1">
+                <p className="text-xl sm:text-2xl font-semibold text-foreground">{d.cases}</p>
+                <span className="text-xs text-muted-foreground">{d.icd_code}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Charts grid */}
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Line chart – Disease cases over time */}
+        <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow lg:col-span-2">
+          <h3 className="text-sm font-medium text-foreground mb-4">Disease Trends</h3>
+          <div className="h-56 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                {Object.keys(trendData[0] || {}).filter(k => k !== 'month').slice(0, 5).map((key, idx) => (
+                  <Line key={key} type="monotone" dataKey={key} stroke={COLORS[idx % COLORS.length]} strokeWidth={2} dot={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      ))}
-    </div>
 
-    {/* Charts grid */}
-    <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-      {/* Line chart – Disease cases over time */}
-      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow lg:col-span-2">
-        <h3 className="text-sm font-medium text-foreground mb-4">Disease Cases Over Time</h3>
-        <div className="h-56 sm:h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="influenza" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Influenza" />
-              <Line type="monotone" dataKey="covid" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} name="COVID-19" />
-              <Line type="monotone" dataKey="dengue" stroke="#f59e0b" strokeWidth={2} dot={false} name="Dengue" />
-              <Line type="monotone" dataKey="tb" stroke="#8b5cf6" strokeWidth={2} dot={false} name="TB" />
-            </LineChart>
-          </ResponsiveContainer>
+        {/* Bar chart – Cases by ICD code */}
+        <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow">
+          <h3 className="text-sm font-medium text-foreground mb-4">Top Diseases</h3>
+          <div className="h-56 sm:h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={diseaseMetrics.slice(0, 7)} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="icd_code" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} interval={0} />
+                <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="cases" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Cases" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Pie chart – Disease Distribution */}
+        <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow">
+          <h3 className="text-sm font-medium text-foreground mb-4">Distribution</h3>
+          <div className="h-56 sm:h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {pieData.map((_entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Bar chart – Cases by Region */}
+        <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow lg:col-span-2">
+          <h3 className="text-sm font-medium text-foreground mb-4">Geographic Distribution (City/State)</h3>
+          <div className="h-56 sm:h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={regionData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="region" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="cases" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Cases" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
-      {/* Bar chart – Cases by ICD code */}
-      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow">
-        <h3 className="text-sm font-medium text-foreground mb-4">Cases by ICD Code</h3>
-        <div className="h-56 sm:h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={icdData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="code" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="cases" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Cases" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Anonymization notice */}
+      <div className="mt-6 text-center">
+        <p className="text-xs text-muted-foreground">
+          Real-time surveillance data. All patient identities are anonymized.
+        </p>
       </div>
-
-      {/* Area chart – Location trends */}
-      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow">
-        <h3 className="text-sm font-medium text-foreground mb-4">Cases by Region</h3>
-        <div className="h-56 sm:h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={locationData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="region" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="cases" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Current" />
-              <Bar dataKey="prev" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} name="Previous" opacity={0.5} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  </DashboardLayout>
-);
+    </DashboardLayout>
+  );
+};
 
 export default GovSurveillance;

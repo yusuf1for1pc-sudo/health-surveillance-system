@@ -5,20 +5,23 @@ import StatCard from "@/components/dashboard/StatCard";
 import DataTable from "@/components/dashboard/DataTable";
 import { Users, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const recentPatients = [
-  { name: "Alice Johnson", phone: "+1 555-0101", lastVisit: "2026-02-10" },
-  { name: "Bob Williams", phone: "+1 555-0102", lastVisit: "2026-02-08" },
-  { name: "Carol Davis", phone: "+1 555-0103", lastVisit: "2026-01-28" },
-];
+import { useData } from "@/contexts/DataContext";
 
 const StaffWorkspace = () => {
+  const { patients, records } = useData();
+
+  const recentPatients = patients.slice(0, 5).map(p => ({
+    name: p.full_name,
+    phone: p.phone,
+    lastVisit: p.created_at.split("T")[0],
+  }));
+
   return (
     <DashboardLayout role="staff">
       <PageHeader title="Staff Dashboard" description="Your patient and record overview" />
       <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <StatCard title="Total Patients" value={64} subtitle="5 new this week" icon={<Users className="w-5 h-5" />} />
-        <StatCard title="Medical Records" value={312} subtitle="Created by you" icon={<FileText className="w-5 h-5" />} />
+        <StatCard title="Total Patients" value={patients.length} subtitle={`${patients.filter(p => { const d = new Date(p.created_at); const week = new Date(); week.setDate(week.getDate() - 7); return d >= week; }).length} new this week`} icon={<Users className="w-5 h-5" />} />
+        <StatCard title="Medical Records" value={records.length} subtitle="Created by you" icon={<FileText className="w-5 h-5" />} />
       </div>
 
       <div className="flex items-center justify-between mb-4">
