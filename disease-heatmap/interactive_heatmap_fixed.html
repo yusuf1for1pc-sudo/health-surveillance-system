@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_34d8f4534c075d3508c8bf5531f5b3ae {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+    <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@main/folium/templates/leaflet_heat.min.js"></script>
+</head>
+<body>
+    
+    
+    <script>
+        // Wait for map to be ready
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var markerData = [{"id": "marker_0", "lat": 19.0626, "lon": 72.882, "locality": "Kurla", "city": "Mumbai", "cases": 28}, {"id": "marker_1", "lat": 19.076, "lon": 72.8777, "locality": "Dadar", "city": "Mumbai", "cases": 22}, {"id": "marker_2", "lat": 19.1136, "lon": 72.8697, "locality": "Andheri", "city": "Mumbai", "cases": 15}, {"id": "marker_3", "lat": 18.5204, "lon": 73.8567, "locality": "Kothrud", "city": "Pune", "cases": 18}, {"id": "marker_4", "lat": 18.5642, "lon": 73.912, "locality": "Hinjewadi", "city": "Pune", "cases": 8}, {"id": "marker_5", "lat": 21.1458, "lon": 79.0882, "locality": "Sitabuldi", "city": "Nagpur", "cases": 12}, {"id": "marker_6", "lat": 19.9672, "lon": 73.754, "locality": "Nehru Nagar", "city": "Nashik", "cases": 6}, {"id": "marker_7", "lat": 19.8762, "lon": 75.3433, "locality": "Garkheda", "city": "Aurangabad", "cases": 5}, {"id": "marker_8", "lat": 19.2183, "lon": 72.9781, "locality": "Vartak Nagar", "city": "Thane", "cases": 25}, {"id": "marker_9", "lat": 16.705, "lon": 74.2433, "locality": "Rajarampuri", "city": "Kolhapur", "cases": 4}];
+                
+                // Add click handlers to zoom buttons in popups
+                markerData.forEach(function(marker) {
+                    // The button will be created when popup opens
+                    // We'll use event delegation on the map container
+                });
+                
+                // Add event delegation for dynamically created zoom buttons
+                document.body.addEventListener('click', function(e) {
+                    if (e.target && e.target.id && e.target.id.startsWith('zoom_marker_')) {
+                        var markerId = e.target.id.replace('zoom_', '');
+                        var markerInfo = markerData.find(m => m.id === markerId);
+                        if (markerInfo) {
+                            // Access the Leaflet map through the global window object
+                            var maps = window.document.querySelectorAll('.folium-map');
+                            if (maps.length > 0) {
+                                var mapElement = maps[0];
+                                var leafletMap = mapElement._leaflet_map;
+                                if (leafletMap) {
+                                    leafletMap.setView([markerInfo.lat, markerInfo.lon], 13, {
+                                        animate: true,
+                                        duration: 0.5
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                console.log('✓ Click-to-zoom handlers attached');
+            }, 500);
+        });
+    </script>
+    
+    
+    <div id="fit-button-container" style="position: fixed; top: 80px; right: 10px; z-index: 9999;">
+        <button id="fit-screen-btn"
+                style="padding: 12px 18px; 
+                       background: white; 
+                       color: #333;
+                       border: 2px solid #333;
+                       border-radius: 6px; 
+                       cursor: pointer; 
+                       font-family: Arial;
+                       font-size: 14px;
+                       font-weight: bold;
+                       box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+                       transition: all 0.2s;">
+            🏠 Fit to Screen
+        </button>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var fitBtn = document.getElementById('fit-screen-btn');
+                if (fitBtn) {
+                    fitBtn.addEventListener('click', function() {
+                        // ROOT CAUSE FIX: Access Leaflet map correctly
+                        var maps = document.querySelectorAll('.folium-map');
+                        if (maps.length > 0) {
+                            var mapElement = maps[0];
+                            var leafletMap = mapElement._leaflet_map;
+                            if (leafletMap) {
+                                var bounds = L.latLngBounds(
+                                    L.latLng(16.48296, 72.558775),
+                                    L.latLng(21.36784, 79.399125)
+                                );
+                                leafletMap.fitBounds(bounds, {
+                                    animate: true,
+                                    duration: 0.8
+                                });
+                                console.log('✓ View reset to bounds');
+                            }
+                        }
+                    });
+                    console.log('✓ Fit to Screen button ready');
+                }
+            }, 500);
+        });
+    </script>
+    
+    <style>
+        #fit-screen-btn:hover {
+            background: #f0f0f0 !important;
+            transform: scale(1.05);
+        }
+        #fit-screen-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+    
+    
+    <div style="position: fixed; bottom: 50px; left: 50px; width: 250px; 
+                background: white; border: 2px solid #333; 
+                border-radius: 8px; z-index: 9999; padding: 15px; color: #333; 
+                font-family: Arial; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+        
+        <h4 style="margin: 0 0 12px 0; color: #333; border-bottom: 2px solid #ff6b6b; 
+                   padding-bottom: 8px; font-size: 15px;">
+            🗺️ Disease Outbreak Map
+        </h4>
+        
+        <div style="margin-bottom: 12px; background: #e3f2fd; 
+                    padding: 8px; border-radius: 5px;">
+            <p style="margin: 0; font-size: 11px; font-weight: bold; color: #1976d2;">
+                💡 Click "Zoom to Location" in popup
+            </p>
+            <p style="margin: 3px 0 0 0; font-size: 10px; color: #555;">
+                Use "Fit to Screen" to reset view
+            </p>
+        </div>
+        
+        <h5 style="margin: 5px 0 8px 0; font-size: 12px; color: #d32f2f;">Risk Levels:</h5>
+        
+        <div style="font-size: 11px;">
+            <div style="display: flex; align-items: center; margin: 5px 0;">
+                <div style="width: 18px; height: 18px; background: #00ff00; 
+                           border: 2px solid #333; border-radius: 3px; margin-right: 10px;"></div>
+                <span>Low (0-5)</span>
+            </div>
+            <div style="display: flex; align-items: center; margin: 5px 0;">
+                <div style="width: 18px; height: 18px; background: #ffd400; 
+                           border: 2px solid #333; border-radius: 3px; margin-right: 10px;"></div>
+                <span>Medium (5-10)</span>
+            </div>
+            <div style="display: flex; align-items: center; margin: 5px 0;">
+                <div style="width: 18px; height: 18px; background: #ff8c00; 
+                           border: 2px solid #333; border-radius: 3px; margin-right: 10px;"></div>
+                <span>High (10-20)</span>
+            </div>
+            <div style="display: flex; align-items: center; margin: 5px 0;">
+                <div style="width: 18px; height: 18px; background: #ff0000; 
+                           border: 2px solid #333; border-radius: 3px; margin-right: 10px;"></div>
+                <span>Critical (20+)</span>
+            </div>
+            <div style="display: flex; align-items: center; margin: 5px 0;">
+                <div style="width: 18px; height: 18px; background: #ff00ff; 
+                           border: 2px solid #333; border-radius: 3px; margin-right: 10px;"></div>
+                <span>Outbreak Zone</span>
+            </div>
+        </div>
+        
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #ddd; 
+                    font-size: 9px; color: #666;">
+            🔬 DBSCAN outbreak detection
+        </div>
+    </div>
+    
+    
+            <div class="folium-map" id="map_34d8f4534c075d3508c8bf5531f5b3ae" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_34d8f4534c075d3508c8bf5531f5b3ae = L.map(
+                "map_34d8f4534c075d3508c8bf5531f5b3ae",
+                {
+                    center: [20.0, 77.0],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 5,
+  "zoomControl": true,
+  "preferCanvas": true,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_c34fff267d022af90c35a376ced4c016 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "OpenStreetMap",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_c34fff267d022af90c35a376ced4c016.addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var heat_map_987bc9c9448a1d3a073b07f218dd872d = L.heatLayer(
+                [[19.0626, 72.882, 28.0], [19.076, 72.8777, 22.0], [19.1136, 72.8697, 15.0], [18.5204, 73.8567, 18.0], [18.5642, 73.912, 8.0], [21.1458, 79.0882, 12.0], [19.9672, 73.754, 6.0], [19.8762, 75.3433, 5.0], [19.2183, 72.9781, 25.0], [16.705, 74.2433, 4.0]],
+                {
+  "minOpacity": 0.6,
+  "maxZoom": 13,
+  "radius": 30,
+  "blur": 15,
+  "gradient": {
+  0.0: "#00ff00",
+  0.3: "#7fff00",
+  0.5: "#ffd400",
+  0.7: "#ff8c00",
+  0.85: "#ff4500",
+  1.0: "#ff0000",
+},
+}
+            );
+        
+    
+            heat_map_987bc9c9448a1d3a073b07f218dd872d.addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var circle_marker_a74d2b56547748eca1f8407c745a78a0 = L.circleMarker(
+                [19.0626, 72.882],
+                {"bubblingMouseEvents": true, "color": "#ff0000", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0000", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_fcbafb1cdfb53532407fda6361bbbe1e = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_63df544c5fc4e65c29ee46070927f56d = $(`<div id="html_63df544c5fc4e65c29ee46070927f56d" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ff0000; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Kurla</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Kurla</b><br>                         <span style="color: #666; font-size: 11px;">Mumbai, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Dengue</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ff0000;">28</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ff0000; color: white; padding: 3px 8px; border-radius: 3px;">                             Critical                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_0"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ff0000; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_fcbafb1cdfb53532407fda6361bbbe1e.setContent(html_63df544c5fc4e65c29ee46070927f56d);
+            
+        
+
+        circle_marker_a74d2b56547748eca1f8407c745a78a0.bindPopup(popup_fcbafb1cdfb53532407fda6361bbbe1e)
+        ;
+
+        
+    
+    
+            circle_marker_a74d2b56547748eca1f8407c745a78a0.bindTooltip(
+                `<div>
+                     Kurla, Mumbai | 28 Dengue cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_60667888a9cc980ad9ed198226823ef4 = L.circleMarker(
+                [19.076, 72.8777],
+                {"bubblingMouseEvents": true, "color": "#ff0000", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0000", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_61915023b06191b36be1f818efa47b3b = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_8bbf858263149ac3ce3bb128aa15b910 = $(`<div id="html_8bbf858263149ac3ce3bb128aa15b910" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ff0000; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Dadar</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Dadar</b><br>                         <span style="color: #666; font-size: 11px;">Mumbai, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Dengue</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ff0000;">22</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ff0000; color: white; padding: 3px 8px; border-radius: 3px;">                             Critical                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_1"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ff0000; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_61915023b06191b36be1f818efa47b3b.setContent(html_8bbf858263149ac3ce3bb128aa15b910);
+            
+        
+
+        circle_marker_60667888a9cc980ad9ed198226823ef4.bindPopup(popup_61915023b06191b36be1f818efa47b3b)
+        ;
+
+        
+    
+    
+            circle_marker_60667888a9cc980ad9ed198226823ef4.bindTooltip(
+                `<div>
+                     Dadar, Mumbai | 22 Dengue cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_57461817a2e92945166561116e775a65 = L.circleMarker(
+                [19.1136, 72.8697],
+                {"bubblingMouseEvents": true, "color": "#ff8c00", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff8c00", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_44fdd0fd2d5e5cbd024b2093f78f5a94 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_b9e85a4c50af550627d70e08ad596ceb = $(`<div id="html_b9e85a4c50af550627d70e08ad596ceb" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ff8c00; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Andheri</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Andheri</b><br>                         <span style="color: #666; font-size: 11px;">Mumbai, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Malaria</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ff8c00;">15</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ff8c00; color: white; padding: 3px 8px; border-radius: 3px;">                             High Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_2"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ff8c00; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_44fdd0fd2d5e5cbd024b2093f78f5a94.setContent(html_b9e85a4c50af550627d70e08ad596ceb);
+            
+        
+
+        circle_marker_57461817a2e92945166561116e775a65.bindPopup(popup_44fdd0fd2d5e5cbd024b2093f78f5a94)
+        ;
+
+        
+    
+    
+            circle_marker_57461817a2e92945166561116e775a65.bindTooltip(
+                `<div>
+                     Andheri, Mumbai | 15 Malaria cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_cb61f16e90931d542079dd051f0c1457 = L.circleMarker(
+                [18.5204, 73.8567],
+                {"bubblingMouseEvents": true, "color": "#ff8c00", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff8c00", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_0df7534078d4d38c93e47c37756300ee = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_dbd05cf02a13cf3db496b0ff48f04eb1 = $(`<div id="html_dbd05cf02a13cf3db496b0ff48f04eb1" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ff8c00; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Kothrud</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Kothrud</b><br>                         <span style="color: #666; font-size: 11px;">Pune, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Typhoid</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ff8c00;">18</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ff8c00; color: white; padding: 3px 8px; border-radius: 3px;">                             High Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_3"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ff8c00; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_0df7534078d4d38c93e47c37756300ee.setContent(html_dbd05cf02a13cf3db496b0ff48f04eb1);
+            
+        
+
+        circle_marker_cb61f16e90931d542079dd051f0c1457.bindPopup(popup_0df7534078d4d38c93e47c37756300ee)
+        ;
+
+        
+    
+    
+            circle_marker_cb61f16e90931d542079dd051f0c1457.bindTooltip(
+                `<div>
+                     Kothrud, Pune | 18 Typhoid cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_459e70f98cc330df595481736b7fbc56 = L.circleMarker(
+                [18.5642, 73.912],
+                {"bubblingMouseEvents": true, "color": "#ffd400", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffd400", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_a4ff5982ebffd6a06bd55d132f1b314a = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_104cbbc811f6a625df43442307cf1ab0 = $(`<div id="html_104cbbc811f6a625df43442307cf1ab0" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ffd400; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Hinjewadi</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Hinjewadi</b><br>                         <span style="color: #666; font-size: 11px;">Pune, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Flu</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ffd400;">8</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ffd400; color: white; padding: 3px 8px; border-radius: 3px;">                             Medium Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_4"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ffd400; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_a4ff5982ebffd6a06bd55d132f1b314a.setContent(html_104cbbc811f6a625df43442307cf1ab0);
+            
+        
+
+        circle_marker_459e70f98cc330df595481736b7fbc56.bindPopup(popup_a4ff5982ebffd6a06bd55d132f1b314a)
+        ;
+
+        
+    
+    
+            circle_marker_459e70f98cc330df595481736b7fbc56.bindTooltip(
+                `<div>
+                     Hinjewadi, Pune | 8 Flu cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_4b78defe0a26276481d8f03c8ac1ac25 = L.circleMarker(
+                [21.1458, 79.0882],
+                {"bubblingMouseEvents": true, "color": "#ff8c00", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff8c00", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_87873c615861bd1da1e60c16b2b729b3 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_142226d13782873f46c63a630792d8e2 = $(`<div id="html_142226d13782873f46c63a630792d8e2" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ff8c00; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Sitabuldi</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Sitabuldi</b><br>                         <span style="color: #666; font-size: 11px;">Nagpur, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Malaria</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ff8c00;">12</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ff8c00; color: white; padding: 3px 8px; border-radius: 3px;">                             High Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_5"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ff8c00; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_87873c615861bd1da1e60c16b2b729b3.setContent(html_142226d13782873f46c63a630792d8e2);
+            
+        
+
+        circle_marker_4b78defe0a26276481d8f03c8ac1ac25.bindPopup(popup_87873c615861bd1da1e60c16b2b729b3)
+        ;
+
+        
+    
+    
+            circle_marker_4b78defe0a26276481d8f03c8ac1ac25.bindTooltip(
+                `<div>
+                     Sitabuldi, Nagpur | 12 Malaria cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_14de8530260cbd9c5c2be9851bd4b371 = L.circleMarker(
+                [19.9672, 73.754],
+                {"bubblingMouseEvents": true, "color": "#ffd400", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffd400", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_4611f9efcd415f589cd9bb1840fccfe0 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_7ebace35cb5a57b0ee2944879f5368c4 = $(`<div id="html_7ebace35cb5a57b0ee2944879f5368c4" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ffd400; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Nehru Nagar</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Nehru Nagar</b><br>                         <span style="color: #666; font-size: 11px;">Nashik, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Dengue</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ffd400;">6</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ffd400; color: white; padding: 3px 8px; border-radius: 3px;">                             Medium Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_6"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ffd400; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_4611f9efcd415f589cd9bb1840fccfe0.setContent(html_7ebace35cb5a57b0ee2944879f5368c4);
+            
+        
+
+        circle_marker_14de8530260cbd9c5c2be9851bd4b371.bindPopup(popup_4611f9efcd415f589cd9bb1840fccfe0)
+        ;
+
+        
+    
+    
+            circle_marker_14de8530260cbd9c5c2be9851bd4b371.bindTooltip(
+                `<div>
+                     Nehru Nagar, Nashik | 6 Dengue cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_f11fed82fed2c58c629e9799633c6c32 = L.circleMarker(
+                [19.8762, 75.3433],
+                {"bubblingMouseEvents": true, "color": "#ffd400", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ffd400", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_fd46aa2bda993c6e52dfb57eee15c684 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_10aa714fe48c9f079333f9971464d118 = $(`<div id="html_10aa714fe48c9f079333f9971464d118" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ffd400; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Garkheda</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Garkheda</b><br>                         <span style="color: #666; font-size: 11px;">Aurangabad, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Flu</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ffd400;">5</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ffd400; color: white; padding: 3px 8px; border-radius: 3px;">                             Medium Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_7"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ffd400; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_fd46aa2bda993c6e52dfb57eee15c684.setContent(html_10aa714fe48c9f079333f9971464d118);
+            
+        
+
+        circle_marker_f11fed82fed2c58c629e9799633c6c32.bindPopup(popup_fd46aa2bda993c6e52dfb57eee15c684)
+        ;
+
+        
+    
+    
+            circle_marker_f11fed82fed2c58c629e9799633c6c32.bindTooltip(
+                `<div>
+                     Garkheda, Aurangabad | 5 Flu cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_da1d3d9c65ee64829508f649d8601f51 = L.circleMarker(
+                [19.2183, 72.9781],
+                {"bubblingMouseEvents": true, "color": "#ff0000", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#ff0000", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_0c002b2e03f002193c2ab01500378439 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_47b09a4255d98045ad2fbcb165356009 = $(`<div id="html_47b09a4255d98045ad2fbcb165356009" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #ff0000; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Vartak Nagar</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Vartak Nagar</b><br>                         <span style="color: #666; font-size: 11px;">Thane, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Dengue</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #ff0000;">25</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #ff0000; color: white; padding: 3px 8px; border-radius: 3px;">                             Critical                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_8"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #ff0000; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_0c002b2e03f002193c2ab01500378439.setContent(html_47b09a4255d98045ad2fbcb165356009);
+            
+        
+
+        circle_marker_da1d3d9c65ee64829508f649d8601f51.bindPopup(popup_0c002b2e03f002193c2ab01500378439)
+        ;
+
+        
+    
+    
+            circle_marker_da1d3d9c65ee64829508f649d8601f51.bindTooltip(
+                `<div>
+                     Vartak Nagar, Thane | 25 Dengue cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var circle_marker_95b14099633135184269a8ccabcccaec = L.circleMarker(
+                [16.705, 74.2433],
+                {"bubblingMouseEvents": true, "color": "#00ff00", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#00ff00", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 3}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+        var popup_96ec7cdca03958860e0906e83422add0 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_bd1ea91d428224a4e7f48f634fe57a0c = $(`<div id="html_bd1ea91d428224a4e7f48f634fe57a0c" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 220px; padding: 10px;">             <div style="background: #00ff00; color: white; padding: 8px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0; font-size: 16px;">📍 Rajarampuri</h3>             </div>                          <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Location:</b></td>                     <td style="padding: 6px;">                         <b>Rajarampuri</b><br>                         <span style="color: #666; font-size: 11px;">Kolhapur, Maharashtra</span>                     </td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Disease:</b></td>                     <td style="padding: 6px;"><b>Flu</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cases:</b></td>                     <td style="padding: 6px;"><b style="font-size: 16px; color: #00ff00;">4</b></td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Risk:</b></td>                     <td style="padding: 6px;">                         <span style="background: #00ff00; color: white; padding: 3px 8px; border-radius: 3px;">                             Low Risk                         </span>                     </td>                 </tr>             </table>                          <button id="zoom_marker_9"                      style="margin-top: 10px; width: 100%; padding: 8px;                             background: #00ff00; color: white; border: none;                             border-radius: 4px; cursor: pointer; font-weight: bold;">                 🔍 Zoom to Location             </button>         </div>         </div>`)[0];
+                popup_96ec7cdca03958860e0906e83422add0.setContent(html_bd1ea91d428224a4e7f48f634fe57a0c);
+            
+        
+
+        circle_marker_95b14099633135184269a8ccabcccaec.bindPopup(popup_96ec7cdca03958860e0906e83422add0)
+        ;
+
+        
+    
+    
+            circle_marker_95b14099633135184269a8ccabcccaec.bindTooltip(
+                `<div>
+                     Rajarampuri, Kolhapur | 4 Flu cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_48b24c00914808fca0a52123c08ac5a4 = L.marker(
+                [19.117625555555556, 72.90559333333334],
+                {
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var icon_ce8e1ec93c62ff5ef13a35e462fcd61e = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "purple",
+  "iconColor": "white",
+  "icon": "warning-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_d82cc2885bb15f2e7fa992c70010c3d7 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_93255974605ee95d959bd8246823d6c2 = $(`<div id="html_93255974605ee95d959bd8246823d6c2" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 200px; padding: 10px;">             <div style="background: #ff00ff; color: white; padding: 10px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0;">⚠️ OUTBREAK ZONE</h3>             </div>             <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cluster ID:</b></td>                     <td style="padding: 6px;">0</td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Total Cases:</b></td>                     <td style="padding: 6px;"><b style="color: #ff00ff; font-size: 16px;">90</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Affected Areas:</b></td>                     <td style="padding: 6px;">Kurla, Vartak Nagar, Dadar</td>                 </tr>             </table>         </div>         </div>`)[0];
+                popup_d82cc2885bb15f2e7fa992c70010c3d7.setContent(html_93255974605ee95d959bd8246823d6c2);
+            
+        
+
+        marker_48b24c00914808fca0a52123c08ac5a4.bindPopup(popup_d82cc2885bb15f2e7fa992c70010c3d7)
+        ;
+
+        
+    
+    
+            marker_48b24c00914808fca0a52123c08ac5a4.bindTooltip(
+                `<div>
+                     Outbreak Zone: 90 cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_48b24c00914808fca0a52123c08ac5a4.setIcon(icon_ce8e1ec93c62ff5ef13a35e462fcd61e);
+            
+    
+            var marker_fbb457d652e6e884b191ffa8e6d965ad = L.marker(
+                [18.533876923076924, 73.8737153846154],
+                {
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var icon_0e0b8734b0651b12c0a21f292d92d9a5 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "purple",
+  "iconColor": "white",
+  "icon": "warning-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_64f5a3d197166f8eb3e7636245d8de4c = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_a1941c18484aa8d35bc336a61f590bbb = $(`<div id="html_a1941c18484aa8d35bc336a61f590bbb" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 200px; padding: 10px;">             <div style="background: #ff00ff; color: white; padding: 10px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0;">⚠️ OUTBREAK ZONE</h3>             </div>             <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cluster ID:</b></td>                     <td style="padding: 6px;">1</td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Total Cases:</b></td>                     <td style="padding: 6px;"><b style="color: #ff00ff; font-size: 16px;">26</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Affected Areas:</b></td>                     <td style="padding: 6px;">Kothrud, Hinjewadi</td>                 </tr>             </table>         </div>         </div>`)[0];
+                popup_64f5a3d197166f8eb3e7636245d8de4c.setContent(html_a1941c18484aa8d35bc336a61f590bbb);
+            
+        
+
+        marker_fbb457d652e6e884b191ffa8e6d965ad.bindPopup(popup_64f5a3d197166f8eb3e7636245d8de4c)
+        ;
+
+        
+    
+    
+            marker_fbb457d652e6e884b191ffa8e6d965ad.bindTooltip(
+                `<div>
+                     Outbreak Zone: 26 cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_fbb457d652e6e884b191ffa8e6d965ad.setIcon(icon_0e0b8734b0651b12c0a21f292d92d9a5);
+            
+    
+            var marker_d57894e44bda37fd45e4cf46b302231b = L.marker(
+                [21.145800000000005, 79.08820000000001],
+                {
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var icon_65568a5ed97fcbacc1dda73c60c97b83 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "purple",
+  "iconColor": "white",
+  "icon": "warning-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_af0419f4f369378a327531d94da19046 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_d640f0d88209405a118b6f737d1ddabb = $(`<div id="html_d640f0d88209405a118b6f737d1ddabb" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 200px; padding: 10px;">             <div style="background: #ff00ff; color: white; padding: 10px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0;">⚠️ OUTBREAK ZONE</h3>             </div>             <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cluster ID:</b></td>                     <td style="padding: 6px;">2</td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Total Cases:</b></td>                     <td style="padding: 6px;"><b style="color: #ff00ff; font-size: 16px;">12</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Affected Areas:</b></td>                     <td style="padding: 6px;">Sitabuldi</td>                 </tr>             </table>         </div>         </div>`)[0];
+                popup_af0419f4f369378a327531d94da19046.setContent(html_d640f0d88209405a118b6f737d1ddabb);
+            
+        
+
+        marker_d57894e44bda37fd45e4cf46b302231b.bindPopup(popup_af0419f4f369378a327531d94da19046)
+        ;
+
+        
+    
+    
+            marker_d57894e44bda37fd45e4cf46b302231b.bindTooltip(
+                `<div>
+                     Outbreak Zone: 12 cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d57894e44bda37fd45e4cf46b302231b.setIcon(icon_65568a5ed97fcbacc1dda73c60c97b83);
+            
+    
+            var marker_be1dbd9caf03e68bd997c2f82d6fac8c = L.marker(
+                [19.967199999999995, 73.754],
+                {
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var icon_3766bf1c10dc1f35abfd1f731f03c50d = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "purple",
+  "iconColor": "white",
+  "icon": "warning-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_628cf3d3da4d37185242f84c94c551d1 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_feecc597fc2ca8e2546b1ecf886f01f6 = $(`<div id="html_feecc597fc2ca8e2546b1ecf886f01f6" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 200px; padding: 10px;">             <div style="background: #ff00ff; color: white; padding: 10px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0;">⚠️ OUTBREAK ZONE</h3>             </div>             <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cluster ID:</b></td>                     <td style="padding: 6px;">3</td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Total Cases:</b></td>                     <td style="padding: 6px;"><b style="color: #ff00ff; font-size: 16px;">6</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Affected Areas:</b></td>                     <td style="padding: 6px;">Nehru Nagar</td>                 </tr>             </table>         </div>         </div>`)[0];
+                popup_628cf3d3da4d37185242f84c94c551d1.setContent(html_feecc597fc2ca8e2546b1ecf886f01f6);
+            
+        
+
+        marker_be1dbd9caf03e68bd997c2f82d6fac8c.bindPopup(popup_628cf3d3da4d37185242f84c94c551d1)
+        ;
+
+        
+    
+    
+            marker_be1dbd9caf03e68bd997c2f82d6fac8c.bindTooltip(
+                `<div>
+                     Outbreak Zone: 6 cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_be1dbd9caf03e68bd997c2f82d6fac8c.setIcon(icon_3766bf1c10dc1f35abfd1f731f03c50d);
+            
+    
+            var marker_5bf2704a0c26601f9eb1105b7b39ac4b = L.marker(
+                [19.8762, 75.3433],
+                {
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var icon_5cc9ce6ebab5ae28f4e8cdd109868150 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "purple",
+  "iconColor": "white",
+  "icon": "warning-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_42a4c4dc0bad896ba9a68013494627b3 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_758d52bd8fd6bd3f94c396167eead924 = $(`<div id="html_758d52bd8fd6bd3f94c396167eead924" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 200px; padding: 10px;">             <div style="background: #ff00ff; color: white; padding: 10px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0;">⚠️ OUTBREAK ZONE</h3>             </div>             <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cluster ID:</b></td>                     <td style="padding: 6px;">4</td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Total Cases:</b></td>                     <td style="padding: 6px;"><b style="color: #ff00ff; font-size: 16px;">5</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Affected Areas:</b></td>                     <td style="padding: 6px;">Garkheda</td>                 </tr>             </table>         </div>         </div>`)[0];
+                popup_42a4c4dc0bad896ba9a68013494627b3.setContent(html_758d52bd8fd6bd3f94c396167eead924);
+            
+        
+
+        marker_5bf2704a0c26601f9eb1105b7b39ac4b.bindPopup(popup_42a4c4dc0bad896ba9a68013494627b3)
+        ;
+
+        
+    
+    
+            marker_5bf2704a0c26601f9eb1105b7b39ac4b.bindTooltip(
+                `<div>
+                     Outbreak Zone: 5 cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5bf2704a0c26601f9eb1105b7b39ac4b.setIcon(icon_5cc9ce6ebab5ae28f4e8cdd109868150);
+            
+    
+            var marker_676fe9b2aaeb42795fabb5ade8c20862 = L.marker(
+                [16.705, 74.2433],
+                {
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+        
+    
+            var icon_6567a6c7c2b81812e58a58a6e1907da0 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "purple",
+  "iconColor": "white",
+  "icon": "warning-sign",
+  "prefix": "glyphicon",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_190e59ee7b95f1c88126c45c7ff021d6 = L.popup({
+  "maxWidth": 280,
+});
+
+        
+            
+                var html_9263d8ba524e92f108bef22db2010a6a = $(`<div id="html_9263d8ba524e92f108bef22db2010a6a" style="width: 100.0%; height: 100.0%;">         <div style="font-family: Arial; min-width: 200px; padding: 10px;">             <div style="background: #ff00ff; color: white; padding: 10px; margin: -10px -10px 10px -10px;">                 <h3 style="margin: 0;">⚠️ OUTBREAK ZONE</h3>             </div>             <table style="width: 100%; font-size: 13px;">                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Cluster ID:</b></td>                     <td style="padding: 6px;">5</td>                 </tr>                 <tr>                     <td style="padding: 6px;"><b>Total Cases:</b></td>                     <td style="padding: 6px;"><b style="color: #ff00ff; font-size: 16px;">4</b></td>                 </tr>                 <tr style="background: #f5f5f5;">                     <td style="padding: 6px;"><b>Affected Areas:</b></td>                     <td style="padding: 6px;">Rajarampuri</td>                 </tr>             </table>         </div>         </div>`)[0];
+                popup_190e59ee7b95f1c88126c45c7ff021d6.setContent(html_9263d8ba524e92f108bef22db2010a6a);
+            
+        
+
+        marker_676fe9b2aaeb42795fabb5ade8c20862.bindPopup(popup_190e59ee7b95f1c88126c45c7ff021d6)
+        ;
+
+        
+    
+    
+            marker_676fe9b2aaeb42795fabb5ade8c20862.bindTooltip(
+                `<div>
+                     Outbreak Zone: 4 cases
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_676fe9b2aaeb42795fabb5ade8c20862.setIcon(icon_6567a6c7c2b81812e58a58a6e1907da0);
+            
+    
+            map_34d8f4534c075d3508c8bf5531f5b3ae.fitBounds(
+                [[16.48296, 72.558775], [21.36784, 79.399125]],
+                {}
+            );
+        
+    
+            var layer_control_c9e88c84d2b7e1083f4fae56870abc9b_layers = {
+                base_layers : {
+                    "openstreetmap" : tile_layer_c34fff267d022af90c35a376ced4c016,
+                },
+                overlays :  {
+                    "Disease Heatmap" : heat_map_987bc9c9448a1d3a073b07f218dd872d,
+                },
+            };
+            let layer_control_c9e88c84d2b7e1083f4fae56870abc9b = L.control.layers(
+                layer_control_c9e88c84d2b7e1083f4fae56870abc9b_layers.base_layers,
+                layer_control_c9e88c84d2b7e1083f4fae56870abc9b_layers.overlays,
+                {
+  "position": "topright",
+  "collapsed": true,
+  "autoZIndex": true,
+}
+            ).addTo(map_34d8f4534c075d3508c8bf5531f5b3ae);
+
+        
+</script>
+</html>
