@@ -25,23 +25,44 @@ const GovReports = () => {
 
       <div className="bg-card rounded-xl card-shadow overflow-hidden">
         <DataTable
-          headers={["Report", "Type", "Date", "Action"]}
-          rows={reports.map((r) => [
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-medium text-foreground">{r.title}</span>
-            </div>,
-            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{r.type}</span>,
-            <span className="text-sm text-muted-foreground">{r.date}</span>,
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1"
-              onClick={() => handleDownload(r.title)}
-            >
-              <Download className="w-3 h-3" />{r.format}
-            </Button>,
-          ])}
+          columns={[
+            {
+              key: "title",
+              header: "Report",
+              render: (r) => (
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium text-foreground">{r.title}</span>
+                </div>
+              ),
+            },
+            {
+              key: "type",
+              header: "Type",
+              render: (r) => (
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                  {r.type}
+                </span>
+              ),
+            },
+            { key: "date", header: "Date" },
+            {
+              key: "action",
+              header: "Action",
+              render: (r) => (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => handleDownload(r.title)}
+                >
+                  <Download className="w-3 h-3" />
+                  {r.format}
+                </Button>
+              ),
+            },
+          ]}
+          data={reports}
         />
       </div>
 

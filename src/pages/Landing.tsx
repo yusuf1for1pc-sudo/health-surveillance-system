@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Shield, Users, Building2, Activity, ArrowRight, Heart, FileText, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth, getRoleRedirectPath } from "@/contexts/AuthContext";
 
 const features = [
   {
@@ -26,6 +28,16 @@ const features = [
 ];
 
 const Landing = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (user) {
+      navigate(getRoleRedirectPath(user.role), { replace: true });
+    }
+  }, [user, navigate]);
+
   return (
     <div className="min-h-screen bg-background theme-landing">
       {/* Nav */}

@@ -29,6 +29,7 @@ import StaffRecordDetail from "./pages/staff/StaffRecordDetail";
 import StaffScanPatient from "./pages/staff/StaffScanPatient";
 import PatientWorkspace from "./pages/patient/PatientWorkspace";
 import PatientHistory from "./pages/patient/PatientHistory";
+import PatientRecordDetail from "./pages/patient/PatientRecordDetail";
 import PatientPrescriptions from "./pages/patient/PatientPrescriptions";
 import PatientReports from "./pages/patient/PatientReports";
 import PatientHealthCard from "./pages/patient/PatientHealthCard";
@@ -87,6 +88,7 @@ const App = () => (
               {/* Patient */}
               <Route path="/patient/workspace" element={<PatientWorkspace />} />
               <Route path="/patient/history" element={<PatientHistory />} />
+              <Route path="/patient/history/:id" element={<PatientRecordDetail />} />
               <Route path="/patient/prescriptions" element={<PatientPrescriptions />} />
               <Route path="/patient/reports" element={<PatientReports />} />
               <Route path="/patient/health-card" element={<PatientHealthCard />} />

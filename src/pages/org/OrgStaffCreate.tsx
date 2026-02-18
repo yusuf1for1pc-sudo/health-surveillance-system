@@ -5,29 +5,139 @@ import PageHeader from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileCheck } from "lucide-react";
+import { Upload, FileCheck, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const OrgStaffCreate = () => {
   const navigate = useNavigate();
   const [staffType, setStaffType] = useState("doctor");
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // Form state
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFeedback(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        setFeedback({ type: "error", message: "Not authenticated. Please sign in again." });
+        setSubmitting(false);
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(
+        `https://jkhkgviyxkmuayenohhd.supabase.co/functions/v1/create-staff-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraGtndml5eGttdWF5ZW5vaGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNTY2OTQsImV4cCI6MjA4NjYzMjY5NH0.WDZ4eAyxloZqsrnN_8Bt1VF8EdOpxZoZFRZeKIJT4aI",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            full_name: fullName,
+            phone,
+            staff_type: staffType,
+          }),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        setFeedback({ type: "error", message: result.error || "Failed to create staff account" });
+      } else {
+        setFeedback({ type: "success", message: `${staffType === "doctor" ? "Doctor" : "Lab Staff"} account created for ${fullName}` });
+        // Wait briefly then navigate back
+        setTimeout(() => navigate("/org/staff"), 1500);
+      }
+    } catch (err) {
+      const msg = (err as Error).name === 'AbortError'
+        ? 'Request timed out. The server may be warming up — please try again.'
+        : (err as Error).message;
+      setFeedback({ type: "error", message: msg });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <DashboardLayout role="org">
       <PageHeader title="Add Staff Member" description="Create a new medical staff account" />
+
+      {/* Feedback */}
+      {feedback && (
+        <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 text-sm ${feedback.type === "success"
+          ? "bg-green-500/10 text-green-700 border border-green-200"
+          : "bg-red-500/10 text-red-700 border border-red-200"
+          }`}>
+          {feedback.type === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {feedback.message}
+        </div>
+      )}
+
       <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow max-w-lg">
-        <form onSubmit={(e) => { e.preventDefault(); navigate("/org/staff"); }} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Full Name</Label>
-            <Input placeholder="Dr. Jane Smith" className="mt-1.5 h-11 sm:h-10" required />
+            <Input
+              placeholder="Dr. Jane Smith"
+              className="mt-1.5 h-11 sm:h-10"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label>Email</Label>
-            <Input type="email" placeholder="jane.smith@hospital.com" className="mt-1.5 h-11 sm:h-10" required />
+            <Input
+              type="email"
+              placeholder="jane.smith@hospital.com"
+              className="mt-1.5 h-11 sm:h-10"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label>Password</Label>
-            <Input type="password" placeholder="••••••••" className="mt-1.5 h-11 sm:h-10" required />
+            <Input
+              type="password"
+              placeholder="••••••••"
+              className="mt-1.5 h-11 sm:h-10"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input
+              type="tel"
+              placeholder="+91 9876543210"
+              className="mt-1.5 h-11 sm:h-10"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
           </div>
           <div>
             <Label>Staff Type</Label>
@@ -37,9 +147,8 @@ const OrgStaffCreate = () => {
                   key={type}
                   type="button"
                   onClick={() => setStaffType(type)}
-                  className={`flex-1 py-3 sm:py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                    staffType === type ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"
-                  }`}
+                  className={`flex-1 py-3 sm:py-2.5 rounded-lg border text-sm font-medium transition-colors ${staffType === type ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"
+                    }`}
                 >
                   {type === "doctor" ? "Doctor" : "Lab Staff"}
                 </button>
@@ -67,7 +176,16 @@ const OrgStaffCreate = () => {
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button type="submit" className="h-11 sm:h-10">Create Staff Account</Button>
+            <Button type="submit" className="h-11 sm:h-10" disabled={submitting}>
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </span>
+              ) : (
+                "Create Staff Account"
+              )}
+            </Button>
             <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => navigate("/org/staff")}>Cancel</Button>
           </div>
         </form>

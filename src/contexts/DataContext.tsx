@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockPatients as initialMockPatients, mockRecords as initialMockRecords, mockOrganizations, mockStaff } from '@/lib/mockData';
@@ -48,6 +48,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [staff] = useState<User[]>(mockStaff);
     const [loading, setLoading] = useState(false);
+    const lastFetchKey = React.useRef<string>('');
 
     // ─── Fetch from Supabase if real auth user ────────────────
     const fetchData = useCallback(async () => {
@@ -86,10 +87,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [user?.id, user?.role, user?.organization_id]);
 
+    // Fetch data once when user identity stabilizes, prevent re-fetch loops
     useEffect(() => {
-        fetchData();
+        const key = `${user?.id}-${user?.role}-${user?.organization_id}`;
+        if (key !== lastFetchKey.current) {
+            lastFetchKey.current = key;
+            fetchData();
+        }
     }, [fetchData]);
 
     // ─── Add Patient ──────────────────────────────────────
@@ -180,6 +186,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
                 if (error) {
                     console.error('Supabase insert error:', error);
+                    throw new Error(error.message || "Failed to save record");
                 } else if (data) {
                     const supaRecord = data as MedicalRecord;
                     setRecords(prev => [supaRecord, ...prev]);
@@ -187,6 +194,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 }
             } catch (err) {
                 console.error('Supabase insert failed:', err);
+                throw err;
             }
         }
 
@@ -215,18 +223,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
 
     // ─── Lookups ──────────────────────────────────────────
-    const getPatient = (id: string) => patients.find(p => p.id === id);
-    const getPatientByPatientId = (patientId: string) => patients.find(p => p.patient_id === patientId);
-    const getRecord = (id: string) => records.find(r => r.id === id);
-    const getRecordsForPatient = (patientId: string) => records.filter(r => r.patient_id === patientId);
+    const getPatient = useCallback((id: string) => patients.find(p => p.id === id), [patients]);
+    const getPatientByPatientId = useCallback((patientId: string) => patients.find(p => p.patient_id === patientId), [patients]);
+    const getRecord = useCallback((id: string) => records.find(r => r.id === id), [records]);
+    const getRecordsForPatient = useCallback((patientId: string) => records.filter(r => r.patient_id === patientId), [records]);
+
+    const value = useMemo(() => ({
+        patients, addPatient, getPatient, getPatientByPatientId,
+        records, addRecord, getRecord, getRecordsForPatient,
+        organizations, staff, loading, refresh: fetchData,
+        updateOrganizationStatus
+    }), [
+        patients, records, organizations, staff, loading, fetchData,
+        getPatient, getPatientByPatientId, getRecord, getRecordsForPatient
+    ]);
 
     return (
-        <DataContext.Provider value={{
-            patients, addPatient, getPatient, getPatientByPatientId,
-            records, addRecord, getRecord, getRecordsForPatient,
-            organizations, staff, loading, refresh: fetchData,
-            updateOrganizationStatus
-        }}>
+        <DataContext.Provider value={value}>
             {children}
         </DataContext.Provider>
     );

@@ -60,91 +60,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
     const skipAuthRedirect = useRef(false);
+    const profileCache = useRef<{ role?: UserRole; organization_id?: string; full_name?: string; phone?: string }>({});
 
     // ─── Session Restoration ─────────────────────────
     useEffect(() => {
+        let loadingTimeout: ReturnType<typeof setTimeout>;
+
         const checkSession = async () => {
             if (isSupabaseConfigured()) {
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
                     if (session?.user) {
-                        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .eq('id', session.user.id)
-                            .single();
+                        localStorage.removeItem('tempest_demo_user');
 
-                        setUser({
-                            id: session.user.id,
-                            email: session.user.email || '',
-                            full_name: profile?.full_name || session.user.user_metadata?.full_name || 'User',
-                            role: (profile?.role as UserRole) || 'patient',
-                            phone: profile?.phone,
-                            organization_id: profile?.organization_id,
-                        });
-                    }
-                } catch (err) {
-                    console.error('Session check error:', err);
-                }
-            }
-            // Disable local storage demo user restoration to enforce security
-            // const demoUser = localStorage.getItem('tempest_demo_user');
-            // if (!user && demoUser) ...
-            setLoading(false);
-        };
+                        // Fetch profile — if it fails, onAuthStateChange already set user from JWT
+                        let profile: any = null;
+                        try {
+                            const result = await Promise.race([
+                                supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+                                new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Profile fetch timeout')), 5000))
+                            ]) as any;
+                            profile = result?.data;
+                        } catch (e) {
+                            console.warn('[Session] Profile fetch timed out, using metadata');
+                        }
 
-        checkSession();
-
-        if (isSupabaseConfigured()) {
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                try {
-                    // Skip during registration — RegisterPatient needs to finish patient insert first
-                    if (skipAuthRedirect.current) {
-                        console.log('[AuthContext] Skipping auth redirect (registration in progress)');
-                        return;
-                    }
-
-                    if (session?.user) {
-                        console.log("[AuthContext] Auth state change:", session.user.email);
-
-                        // Fetch profile to get authoritative role (not just metadata)
-                        const { data: profile, error: profileError } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .eq('id', session.user.id)
-                            .single();
-
-                        if (profileError) {
-                            console.error("[AuthContext] Profile fetch error:", profileError);
-                            // If we can't get profile, we can't trust the role. Safer to sign out.
-                            // But to avoid infinite loop, we check if we keep crashing.
+                        if (profile) {
+                            profileCache.current = {
+                                role: profile.role,
+                                organization_id: profile.organization_id,
+                                full_name: profile.full_name,
+                                phone: profile.phone
+                            };
                         }
 
                         const role = (profile?.role as UserRole) || (session.user.user_metadata?.role as UserRole) || 'patient';
                         const orgId = profile?.organization_id || session.user.user_metadata?.organization_id;
 
-                        // SECURITY: Check Org Status for Org-bound roles
-                        // ENFORCEMENT RULES:
-                        // ✔ org_admin, doctor, lab_staff -> MUST be approved.
-                        // ✖ patient, government, platform_admin -> Bypass check (always allowed if auth is valid).
-                        if (['org_admin', 'doctor', 'lab_staff'].includes(role)) {
-                            // Wrap RPC in try-catch in case it doesn't exist or fails
+                        // For org_admin: verify their organization is still approved
+                        if (role === 'org_admin' && orgId) {
                             try {
-                                const { data: orgStatus } = await supabase.rpc('get_my_org_status');
-                                if (orgStatus && orgStatus !== 'approved') {
-                                    console.warn(`[AuthContext] Blocking session for ${role}. Org Status: ${orgStatus}`);
-                                    await supabase.auth.signOut();
+                                const { data: orgData } = await supabase
+                                    .from('organizations')
+                                    .select('status')
+                                    .eq('id', orgId)
+                                    .single();
+
+                                if (orgData && orgData.status !== 'approved') {
+                                    console.log('[Session] Org not approved, signing out. Status:', orgData.status);
+                                    await supabase.auth.signOut({ scope: 'local' });
                                     setUser(null);
+                                    setLoading(false);
                                     return;
                                 }
-                            } catch (rpcError) {
-                                console.error("Org status check failed:", rpcError);
-                                // Don't block login on RPC failure unless critical?
-                                // Let's assume if it fails, we allow (fail open) OR deny (fail closed). 
-                                // For now, fail open to avoid "disappearing" app, but log it.
+                            } catch (orgErr) {
+                                console.warn('[Session] Org status check failed:', orgErr);
                             }
                         }
 
+                        // Enrich user with profile data
                         setUser({
                             id: session.user.id,
                             email: session.user.email || '',
@@ -153,23 +127,95 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             phone: profile?.phone,
                             organization_id: orgId,
                         });
-                        console.log("[AuthContext] User state set.");
-                    } else {
-                        // Don't clear demo user on auth state change
-                        const demoUser = localStorage.getItem('tempest_demo_user');
-                        if (!demoUser) {
-                            setUser(null);
-                        }
                     }
                 } catch (err) {
-                    console.error("[AuthContext] Unexpected error in auth state change:", err);
-                    // Force clean state
-                    setUser(null);
+                    // getSession() can fail with AbortError if client state is corrupted
+                    // onAuthStateChange will still fire and set user from JWT metadata
+                    console.warn('Session check error (onAuthStateChange will handle it):', err);
+                }
+            }
+            setLoading(false);
+        };
+
+        checkSession();
+
+        // Safety net: always clear loading after 3 seconds even if everything fails
+        loadingTimeout = setTimeout(() => setLoading(false), 3000);
+
+        if (isSupabaseConfigured()) {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+                // Skip during registration — RegisterPatient needs to finish patient insert first
+                if (skipAuthRedirect.current) {
+                    return;
+                }
+
+                if (session?.user) {
+                    // Start with metadata
+                    const metadata = session.user.user_metadata || {};
+                    let role = (metadata.role as UserRole) || 'patient';
+                    let orgId = metadata.organization_id;
+                    let fullName = metadata.full_name || 'User';
+                    let phone = metadata.phone;
+
+                    // Apply cached profile data first (if any)
+                    if (profileCache.current.organization_id) orgId = profileCache.current.organization_id;
+                    if (profileCache.current.role) role = profileCache.current.role;
+                    if (profileCache.current.full_name) fullName = profileCache.current.full_name;
+
+                    // Fetch profile to enrich data, UNLESS it's a token refresh (to avoid hang)
+                    if (event !== 'TOKEN_REFRESHED' && event !== 'SIGNED_OUT') {
+                        try {
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('*')
+                                .eq('id', session.user.id)
+                                .single();
+
+                            if (profile) {
+                                role = (profile.role as UserRole) || role;
+                                orgId = profile.organization_id || orgId;
+                                fullName = profile.full_name || fullName;
+                                phone = profile.phone || phone;
+
+                                // Update cache
+                                profileCache.current = {
+                                    role: profile.role,
+                                    organization_id: profile.organization_id,
+                                    full_name: profile.full_name,
+                                    phone: profile.phone
+                                };
+                            }
+                        } catch (err) {
+                            console.warn('Profile fetch failed in onAuthStateChange:', err);
+                        }
+                    }
+
+                    setUser({
+                        id: session.user.id,
+                        email: session.user.email || '',
+                        full_name: fullName,
+                        role,
+                        phone: phone,
+                        organization_id: orgId,
+                    });
+                    setLoading(false);
+                } else {
+                    const demoUser = localStorage.getItem('tempest_demo_user');
+                    if (!demoUser) {
+                        setUser(null);
+                        profileCache.current = {}; // Clear cache on sign out
+                    }
+                    setLoading(false);
                 }
             });
 
-            return () => subscription.unsubscribe();
+            return () => {
+                clearTimeout(loadingTimeout);
+                subscription.unsubscribe();
+            };
         }
+
+        return () => clearTimeout(loadingTimeout);
     }, []);
 
     // ─── Sign In (validates against Supabase Auth) ───
@@ -178,38 +224,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return { error: 'Authentication service is not configured.' };
         }
 
+        // CRITICAL: Block onAuthStateChange from running during signIn
+        skipAuthRedirect.current = true;
+
         try {
-            console.log("=== SIGN IN START ===");
-            console.log("Attempting sign in for:", email);
+            setUser(null);
+            localStorage.removeItem('tempest_demo_user');
 
-            // Timeout wrapper
-            const signInPromise = supabase.auth.signInWithPassword({ email, password });
-
-            const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
-                setTimeout(() => reject(new Error('Sign in request timed out. Please check your connection.')), 15000)
-            );
-
-            const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;
-
-            console.log("Supabase Auth Result:", {
-                user: data?.user?.id,
-                session: !!data?.session,
-                error: error?.message
-            });
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (data?.session && data?.user) {
-                // Ensure we don't block main thread
-                // Profile fetch
-                const profilePromise = supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', data.user.id)
-                    .single();
-
-                const { data: profile, error: profileError } = await profilePromise;
-
-                const role = (profile?.role as UserRole) || 'patient';
                 const metadata = data.user.user_metadata || {};
+
+                // Fetch profile — fast, single row lookup
+                let profile: any = null;
+                try {
+                    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+                    profile = profileData;
+                } catch { }
+
+                const role = (profile?.role as UserRole) || (metadata.role as UserRole) || 'patient';
+
+                // For org_admin: check if their organization is approved
+                if (role === 'org_admin' && profile?.organization_id) {
+                    try {
+                        const { data: orgData } = await supabase
+                            .from('organizations')
+                            .select('status')
+                            .eq('id', profile.organization_id)
+                            .single();
+
+                        if (orgData && orgData.status !== 'approved') {
+                            await supabase.auth.signOut({ scope: 'local' });
+                            return { error: `Your organization is ${orgData.status}. Please wait for admin approval before signing in.` };
+                        }
+                    } catch { }
+                }
 
                 setUser({
                     id: data.user.id,
@@ -219,11 +269,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     phone: profile?.phone,
                     organization_id: profile?.organization_id,
                 });
-
-                localStorage.removeItem('tempest_demo_user');
-
-                // Org check could go here, but omitted for speed to fix login loop first.
-                // The onAuthStateChange will catch it anyway.
 
                 return { role };
             }
@@ -238,8 +283,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return { error: 'No user returned.' };
 
         } catch (err: any) {
-            console.error("Sign in exception:", err);
             return { error: err.message || 'Unable to connect to authentication server.' };
+        } finally {
+            skipAuthRedirect.current = false;
         }
     };
 
@@ -281,10 +327,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (signUpData.user) {
-            // Profile is created by the handle_new_user trigger (with phone from metadata).
-            // IMPORTANT: Do NOT call setUser() here! It would trigger a React re-render
-            // and navigate away from the registration page before the patient record is created.
-            // The caller (RegisterPatient) will handle navigation after patient insert.
+            // Profile is created by the handle_new_user trigger.
+            // Sign out immediately so the user is NOT auto-logged in.
+            // They must go to the login page and sign in manually.
+            await supabase.auth.signOut({ scope: 'local' });
+            setUser(null);
         }
 
         return { data: signUpData, error: undefined };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,23 +7,52 @@ import { useAuth, getRoleRedirectPath } from "@/contexts/AuthContext";
 import { Stethoscope, User, Shield, Building2, Activity } from "lucide-react";
 
 const demoAccounts = [
-  { email: "doctor@tempest.com", label: "Doctor", icon: Stethoscope, color: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200" },
-  { email: "patient@tempest.com", label: "Patient", icon: User, color: "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200" },
-  { email: "admin@tempest.com", label: "Admin", icon: Shield, color: "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-200" },
-  { email: "org@tempest.com", label: "Org Admin", icon: Building2, color: "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200" },
-  { email: "gov@tempest.com", label: "Government", icon: Activity, color: "bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-200" },
+  { email: "Doom@doc.com", password: "123456", label: "Doctor", icon: Stethoscope, color: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200" },
+  { email: "Tony@patient.com", password: "123456", label: "Patient", icon: User, color: "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200" },
+  { email: "admin@tempest.com", password: "admin123", label: "Admin", icon: Shield, color: "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-200" },
+  { email: "sion@hospital.com", password: "123456", label: "Org Admin", icon: Building2, color: "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200" },
+  { email: "gov@gov.mail", password: "gov123", label: "Government", icon: Activity, color: "bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-200" },
 ];
+
+
+
 
 import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, demoSignIn } = useAuth();
+  const { signIn, demoSignIn, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // If user is already authenticated, redirect to their dashboard
+  // They can only see this page after signing out
+  useEffect(() => {
+    if (user) {
+      navigate(getRoleRedirectPath(user.role), { replace: true });
+    }
+  }, [user, navigate]);
+
+  const handleDemoLogin = async (demoEmail: string, demoPassword: string) => {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await signIn(demoEmail, demoPassword);
+
+      if (result.error) {
+        setError("Demo login failed: " + result.error);
+      } else if (result.role) {
+        navigate(getRoleRedirectPath(result.role as any), { replace: true });
+      }
+    } catch {
+      setError("Demo login failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +63,7 @@ const Login = () => {
       if (result.error) {
         setError(result.error);
       } else if (result.role) {
-        navigate(getRoleRedirectPath(result.role as any));
+        navigate(getRoleRedirectPath(result.role as any), { replace: true });
       }
     } catch {
       setError("An unexpected error occurred.");
@@ -43,18 +72,7 @@ const Login = () => {
     }
   };
 
-  const handleDemoLogin = async (demoEmail: string) => {
-    setError("");
-    setLoading(true);
-    try {
-      const result = await demoSignIn(demoEmail);
-      navigate(getRoleRedirectPath(result.role as any));
-    } catch {
-      setError("Demo login failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -108,6 +126,9 @@ const Login = () => {
           </Button>
         </form>
 
+
+
+
         {/* Demo Quick Login */}
         <div className="mt-6">
           <div className="relative mb-4">
@@ -120,7 +141,7 @@ const Login = () => {
                 key={acc.email}
                 type="button"
                 disabled={loading}
-                onClick={() => handleDemoLogin(acc.email)}
+                onClick={() => handleDemoLogin(acc.email, acc.password)}
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all ${acc.color}`}
               >
                 <acc.icon className="w-5 h-5" />
