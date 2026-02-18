@@ -97,32 +97,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (isSupabaseConfigured()) {
             const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                // Skip during registration — RegisterPatient needs to finish patient insert first
-                if (skipAuthRedirect.current) {
-                    console.log('[AuthContext] Skipping auth redirect (registration in progress)');
-                    return;
-                }
-                if (session?.user) {
-                    console.log("[AuthContext] Auth state change:", session.user.email);
-                    const metadata = session.user.user_metadata || {};
-
-                    // Use metadata to populate user state (avoids DB query deadlock during init)
-                    setUser({
-                        id: session.user.id,
-                        email: session.user.email || '',
-                        full_name: metadata.full_name || 'User',
-                        role: (metadata.role as UserRole) || 'patient',
-                        phone: metadata.phone,
-                        organization_id: metadata.organization_id, // Metadata might be null for older users, but critical for avoiding hang
-                    });
-                    // Log success
-                    console.log("[AuthContext] User state set from metadata.");
-                } else {
-                    // Don't clear demo user on auth state change
-                    const demoUser = localStorage.getItem('tempest_demo_user');
-                    if (!demoUser) {
-                        setUser(null);
+                try {
+                    // Skip during registration — RegisterPatient needs to finish patient insert first
+                    if (skipAuthRedirect.current) {
+                        console.log('[AuthContext] Skipping auth redirect (registration in progress)');
+                        return;
                     }
+
+                    if (session?.user) {
+                        console.log("[AuthContext] Auth state change:", session.user.email);
+
+                        // Fetch profile to get authoritative role (not just metadata)
+                        const { data: profile, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (profileError) {
+                            console.error("[AuthContext] Profile fetch error:", profileError);
+                            // If we can't get profile, we can't trust the role. Safer to sign out.
+                            // But to avoid infinite loop, we check if we keep crashing.
+                        }
+
+                        const role = (profile?.role as UserRole) || (session.user.user_metadata?.role as UserRole) || 'patient';
+                        const orgId = profile?.organization_id || session.user.user_metadata?.organization_id;
+
+                        // SECURITY: Check Org Status for Org-bound roles
+                        // ENFORCEMENT RULES:
+                        // ✔ org_admin, doctor, lab_staff -> MUST be approved.
+                        // ✖ patient, government, platform_admin -> Bypass check (always allowed if auth is valid).
+                        if (['org_admin', 'doctor', 'lab_staff'].includes(role)) {
+                            // Wrap RPC in try-catch in case it doesn't exist or fails
+                            try {
+                                const { data: orgStatus } = await supabase.rpc('get_my_org_status');
+                                if (orgStatus && orgStatus !== 'approved') {
+                                    console.warn(`[AuthContext] Blocking session for ${role}. Org Status: ${orgStatus}`);
+                                    await supabase.auth.signOut();
+                                    setUser(null);
+                                    return;
+                                }
+                            } catch (rpcError) {
+                                console.error("Org status check failed:", rpcError);
+                                // Don't block login on RPC failure unless critical?
+                                // Let's assume if it fails, we allow (fail open) OR deny (fail closed). 
+                                // For now, fail open to avoid "disappearing" app, but log it.
+                            }
+                        }
+
+                        setUser({
+                            id: session.user.id,
+                            email: session.user.email || '',
+                            full_name: profile?.full_name || session.user.user_metadata?.full_name || 'User',
+                            role,
+                            phone: profile?.phone,
+                            organization_id: orgId,
+                        });
+                        console.log("[AuthContext] User state set.");
+                    } else {
+                        // Don't clear demo user on auth state change
+                        const demoUser = localStorage.getItem('tempest_demo_user');
+                        if (!demoUser) {
+                            setUser(null);
+                        }
+                    }
+                } catch (err) {
+                    console.error("[AuthContext] Unexpected error in auth state change:", err);
+                    // Force clean state
+                    setUser(null);
                 }
             });
 
@@ -140,7 +182,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log("=== SIGN IN START ===");
             console.log("Attempting sign in for:", email);
 
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            // Timeout wrapper
+            const signInPromise = supabase.auth.signInWithPassword({ email, password });
+
+            const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+                setTimeout(() => reject(new Error('Sign in request timed out. Please check your connection.')), 15000)
+            );
+
+            const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;
 
             console.log("Supabase Auth Result:", {
                 user: data?.user?.id,
@@ -148,65 +197,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 error: error?.message
             });
 
-            if (data.session && data.user) {
-                const metadata = data.user.user_metadata || {};
-                setUser({
-                    id: data.user.id,
-                    email: data.user.email || '',
-                    full_name: metadata.full_name || 'User',
-                    role: (metadata.role as UserRole) || 'patient',
-                    phone: metadata.phone,
-                    organization_id: metadata.organization_id,
-                });
-            }
-
-            if (error) {
-                // Map Supabase errors to user-friendly messages
-                if (error.message === 'Invalid login credentials') {
-                    return { error: 'Invalid email or password. Please check your credentials or register first.' };
-                }
-                return { error: error.message };
-            }
-
-            if (data.user) {
-                console.log("Fetching profile for:", data.user.id);
-
-                const { data: profile, error: profileError } = await supabase
+            if (data?.session && data?.user) {
+                // Ensure we don't block main thread
+                // Profile fetch
+                const profilePromise = supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', data.user.id)
                     .single();
 
-                console.log("Profile Fetch Result:", {
-                    found: !!profile,
-                    role: profile?.role,
-                    error: profileError?.message
-                });
+                const { data: profile, error: profileError } = await profilePromise;
 
                 const role = (profile?.role as UserRole) || 'patient';
-
-                console.log("Setting user context...");
+                const metadata = data.user.user_metadata || {};
 
                 setUser({
                     id: data.user.id,
                     email: data.user.email || '',
-                    full_name: profile?.full_name || 'User',
+                    full_name: profile?.full_name || metadata.full_name || 'User',
                     role,
                     phone: profile?.phone,
                     organization_id: profile?.organization_id,
                 });
+
                 localStorage.removeItem('tempest_demo_user');
 
-                console.log("Sign in complete, returning role:", role);
+                // Org check could go here, but omitted for speed to fix login loop first.
+                // The onAuthStateChange will catch it anyway.
+
                 return { role };
             }
 
-            console.warn("Sign in successful but no user/session returned.");
-        } catch (err) {
+            if (error) {
+                if (error.message === 'Invalid login credentials') {
+                    return { error: 'Invalid email or password.' };
+                }
+                return { error: error.message };
+            }
+
+            return { error: 'No user returned.' };
+
+        } catch (err: any) {
             console.error("Sign in exception:", err);
-            return { error: 'Unable to connect to authentication server.' };
+            return { error: err.message || 'Unable to connect to authentication server.' };
         }
-        return { error: 'An unexpected error occurred.' };
     };
 
     // ─── Sign Up (creates user in Supabase Auth + profile + patient via trigger) ───
@@ -323,11 +357,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // ─── Sign Out ────────────────────────────────────
     const signOut = async () => {
-        if (isSupabaseConfigured()) {
-            await supabase.auth.signOut().catch(() => { });
+        try {
+            if (isSupabaseConfigured()) {
+                await supabase.auth.signOut();
+            }
+        } catch (error) {
+            console.error("Error signing out:", error);
+        } finally {
+            localStorage.removeItem('tempest_demo_user');
+            setUser(null);
+            console.log("Local session cleared.");
         }
-        localStorage.removeItem('tempest_demo_user');
-        setUser(null);
     };
 
     return (

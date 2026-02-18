@@ -1,9 +1,9 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { ReactNode, useState } from "react";
 import {
   LayoutDashboard, Users, Building2, Shield, User, FileText,
   ClipboardList, Activity, AlertTriangle, BarChart3, Heart,
-  History, CreditCard, Menu, X, LogOut, ChevronLeft
+  History, CreditCard, Menu, X, LogOut, ChevronLeft, Loader2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -66,14 +66,27 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut, user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navItems = roleNavItems[role] || [];
   const themeClass = `theme-${role}`;
 
+  // Protect the route
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
   const handleSignOut = async () => {
     await signOut();
-    navigate("/");
+    navigate("/login");
   };
 
   return (
@@ -102,7 +115,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
 
         <div className="px-4 py-3">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            {roleLabels[role]}
+            {roleLabels[role] || 'User'}
           </span>
         </div>
 

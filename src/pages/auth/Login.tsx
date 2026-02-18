@@ -139,6 +139,19 @@ const Login = () => {
           {" · "}
           <Link to="/register/organization" className="text-primary hover:underline">Register Organization</Link>
         </div>
+
+        <div className="mt-8 pt-4 border-t text-center">
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="text-xs text-red-500 hover:text-red-700 underline"
+          >
+            Trouble logging in? Click here to Reset App
+          </button>
+        </div>
       </div>
     </div>
   );

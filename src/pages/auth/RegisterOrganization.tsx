@@ -7,6 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload, FileCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import LocationSearch from "@/components/ui/LocationSearch";
+import CitySearch from "@/components/ui/CitySearch";
+import { StateSearch } from "@/components/ui/StateSearch";
+import { Textarea } from "@/components/ui/textarea";
 
 const RegisterOrganization = () => {
   const { signUp } = useAuth();
@@ -20,13 +24,38 @@ const RegisterOrganization = () => {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
-  const [country, setCountry] = useState("");
+  const [country, setCountry] = useState("India");
   const [pincode, setPincode] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const handleLocationSelect = (data: {
+    address: string;
+    city: string;
+    state: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+    country: string;
+  }) => {
+    setAddress(data.address);
+    if (data.city) setCity(data.city);
+    if (data.state) setState(data.state);
+    setPincode(data.pincode);
+    setLatitude(data.latitude);
+    setLongitude(data.longitude);
+  };
+
+  const handleCitySelect = (data: { city: string; state?: string; pincode?: string }) => {
+    setCity(data.city);
+    if (data.state) setState(data.state);
+    if (data.pincode) setPincode(data.pincode);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +88,8 @@ const RegisterOrganization = () => {
           org_state: state,
           org_country: country,
           org_pincode: pincode,
+          org_latitude: latitude?.toString(),
+          org_longitude: longitude?.toString(),
         }
       });
 
@@ -124,8 +155,23 @@ const RegisterOrganization = () => {
                 </Select>
               </div>
               <div>
-                <Label>Phone Number</Label>
-                <Input type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <Label>Phone Number <span className="text-muted-foreground text-xs font-normal ml-1">(+91)</span></Label>
+                <div className="relative mt-1.5 flex items-center">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-1 text-muted-foreground border-r pr-2 border-border h-5">
+                    <span className="text-sm font-medium">+91</span>
+                  </div>
+                  <Input
+                    type="tel"
+                    placeholder="9876543210"
+                    value={phone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setPhone(val);
+                    }}
+                    className="pl-14"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -141,25 +187,37 @@ const RegisterOrganization = () => {
             </div>
           </div>
 
-          <div className="sapce-y-4 pt-2">
+          <div className="space-y-4 pt-2">
             <h3 className="font-medium text-sm text-foreground mb-3">Location</h3>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <Label>State</Label>
+                <StateSearch value={state} onSelect={setState} />
+              </div>
+              <div>
+                <CitySearch
+                  state={state}
+                  initialValue={city}
+                  onCitySelect={handleCitySelect}
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <LocationSearch
+                city={city}
+                state={state}
+                onLocationSelect={handleLocationSelect}
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <Label>Address</Label>
-                <Input placeholder="123 Healthcare Blvd" value={address} onChange={(e) => setAddress(e.target.value)} required />
+                <Textarea placeholder="123 Healthcare Blvd" value={address} onChange={(e) => setAddress(e.target.value)} required />
               </div>
-              <div>
-                <Label>City</Label>
-                <Input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} required />
-              </div>
-              <div>
-                <Label>State</Label>
-                <Input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} required />
-              </div>
-              <div>
-                <Label>Country</Label>
-                <Input placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)} required />
-              </div>
+
               <div>
                 <Label>Pincode</Label>
                 <Input placeholder="ZIP/Pin" value={pincode} onChange={(e) => setPincode(e.target.value)} required />

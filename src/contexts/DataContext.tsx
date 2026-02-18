@@ -26,6 +26,7 @@ interface DataContextType {
     // Loading
     loading: boolean;
     refresh: () => Promise<void>;
+    updateOrganizationStatus: (id: string, status: 'approved' | 'rejected') => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -44,7 +45,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
     const [patients, setPatients] = useState<Patient[]>(initialMockPatients);
     const [records, setRecords] = useState<MedicalRecord[]>(initialMockRecords);
-    const [organizations] = useState<Organization[]>(mockOrganizations);
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [staff] = useState<User[]>(mockStaff);
     const [loading, setLoading] = useState(false);
 
@@ -54,16 +55,31 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
         setLoading(true);
         try {
-            const [patientsRes, recordsRes] = await Promise.all([
+            const promises: Promise<any>[] = [
                 supabase.from('patients').select('*').order('created_at', { ascending: false }),
                 supabase.from('medical_records').select('*').order('created_at', { ascending: false }),
-            ]);
+            ];
+
+            // If Admin, fetch organizations
+            if (user.role === 'platform_admin') {
+                promises.push(
+                    supabase.from('organizations').select('*').order('created_at', { ascending: false })
+                );
+            }
+
+            const results = await Promise.all(promises);
+            const patientsRes = results[0];
+            const recordsRes = results[1];
+            const orgsRes = user.role === 'platform_admin' ? results[2] : null;
 
             if (patientsRes.data && patientsRes.data.length > 0) {
                 setPatients(patientsRes.data);
             }
             if (recordsRes.data && recordsRes.data.length > 0) {
                 setRecords(recordsRes.data);
+            }
+            if (orgsRes && orgsRes.data) {
+                setOrganizations(orgsRes.data);
             }
         } catch (err) {
             console.error('Error fetching data from Supabase:', err);
@@ -178,6 +194,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return newRecord;
     };
 
+    // ─── Update Organization Status ───────────────────────
+    const updateOrganizationStatus = async (id: string, status: 'approved' | 'rejected') => {
+        // Optimistic update
+        setOrganizations(prev => prev.map(org => org.id === id ? { ...org, status } : org));
+
+        if (isSupabaseConfigured() && user && !isDemoUser(user.id)) {
+            const { error } = await supabase
+                .from('organizations')
+                .update({ status })
+                .eq('id', id);
+
+            if (error) {
+                console.error("Failed to update org status:", error);
+                // Revert on error (fetching fresh data would be safer but let's just warn for now)
+                // In a production app, we'd revert the optimistic update here.
+                fetchData();
+            }
+        }
+    };
+
     // ─── Lookups ──────────────────────────────────────────
     const getPatient = (id: string) => patients.find(p => p.id === id);
     const getPatientByPatientId = (patientId: string) => patients.find(p => p.patient_id === patientId);
@@ -189,6 +225,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             patients, addPatient, getPatient, getPatientByPatientId,
             records, addRecord, getRecord, getRecordsForPatient,
             organizations, staff, loading, refresh: fetchData,
+            updateOrganizationStatus
         }}>
             {children}
         </DataContext.Provider>
