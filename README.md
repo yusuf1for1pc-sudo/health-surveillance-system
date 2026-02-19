@@ -3,10 +3,10 @@
 Tempest is a web platform that lets healthcare providers create secure digital medical records while enabling anonymized disease monitoring for public‑health decision making.
 It supports patients, doctors, organizations, admins, and a government surveillance dashboard in one system.
 
-# 🔗 Demo / Access
-# Repo: [Github repo link](https://github.com/yusuf1for1pc-sudo/health-surveillance-system.git)
+🔗 Demo / Access
+Repo: [Github repo link](https://github.com/yusuf1for1pc-sudo/health-surveillance-system.git)
 
-# Live URL : [Deployment link](https://tempest-health-surveillance-system.vercel.app)
+Live URL : [Deployment link](https://tempest-health-surveillance-system.vercel.app)
 
 🚀 What the System Does
 
