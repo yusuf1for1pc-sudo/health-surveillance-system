@@ -4,32 +4,32 @@ Tempest is a web platform that lets healthcare providers create secure digital m
 It supports patients, doctors, organizations, admins, and a government surveillance dashboard in one system.
 
 🔗 Demo / Access
-Repo: [<ADD_GITHUB_LINK>](https://github.com/yusuf1for1pc-sudo/health-surveillance-system.git)
+Repo: [Github repo link](https://github.com/yusuf1for1pc-sudo/health-surveillance-system.git)
 
-Live URL (if deployed): [<ADD_URL_OR_WRITE_LOCAL_ONLY>](https://tempest-health-surveillance-system.vercel.app)
+Live URL (if deployed): [Deployment link](https://tempest-health-surveillance-system.vercel.app)
 
 🚀 What the System Does
 
--Doctors create digital prescriptions and upload medical reports
--Patients receive a unified and continuous medical history
--Healthcare organizations manage doctors and medical staff
--Admin verifies and approves institutions for secure access
+- Doctors create digital prescriptions and upload medical reports
+- Patients receive a unified and continuous medical history
+- Healthcare organizations manage doctors and medical staff
+- Admin verifies and approves institutions for secure access
 
 🏛 Government Dashboard Provides
 
--Disease heatmap visualization
--Real-time trend analysis
--Top reported diseases overview
--Regional distribution insights
--Automated alert system for early detection
+- Disease heatmap visualization
+- Real-time trend analysis
+- Top reported diseases overview
+- Regional distribution insights
+- Automated alert system for early detection
 
 👥 User Roles (Demo Login)
 From the login screen you can directly enter:
--Patient view
--Doctor view
--Organization view
--Admin view
--Government dashboard (analytics)
+- Patient view
+- Doctor view
+- Organization view
+- Admin view
+- Government dashboard (analytics)
 
 ## Tech Stack
 
@@ -48,11 +48,7 @@ From the login screen you can directly enter:
 - 📊 **Government Surveillance** — Disease outbreak monitoring with gradient heatmaps
 - 🤖 **AI Integration** — Smart diagnosis suggestions, prescription generation
 
-💻 Run Locally
-git clone [<YOUR_GIT_URL>](https://github.com/yusuf1for1pc-sudo/health-surveillance-system.git)
-cd <PROJECT_NAME>(tempest-health-survillance-system)
-npm install
-npm run dev
+
 
 
 
