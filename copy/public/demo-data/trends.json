@@ -1,0 +1,98 @@
+[
+    {
+        "month": "Mar 2025",
+        "Influenza": 185,
+        "COVID-19": 132,
+        "Dengue": 48,
+        "Tuberculosis": 67,
+        "Malaria": 34
+    },
+    {
+        "month": "Apr 2025",
+        "Influenza": 162,
+        "COVID-19": 118,
+        "Dengue": 72,
+        "Tuberculosis": 71,
+        "Malaria": 41
+    },
+    {
+        "month": "May 2025",
+        "Influenza": 134,
+        "COVID-19": 95,
+        "Dengue": 110,
+        "Tuberculosis": 64,
+        "Malaria": 58
+    },
+    {
+        "month": "Jun 2025",
+        "Influenza": 98,
+        "COVID-19": 78,
+        "Dengue": 189,
+        "Tuberculosis": 59,
+        "Malaria": 82
+    },
+    {
+        "month": "Jul 2025",
+        "Influenza": 76,
+        "COVID-19": 65,
+        "Dengue": 245,
+        "Tuberculosis": 55,
+        "Malaria": 105
+    },
+    {
+        "month": "Aug 2025",
+        "Influenza": 64,
+        "COVID-19": 58,
+        "Dengue": 310,
+        "Tuberculosis": 52,
+        "Malaria": 118
+    },
+    {
+        "month": "Sep 2025",
+        "Influenza": 72,
+        "COVID-19": 62,
+        "Dengue": 278,
+        "Tuberculosis": 56,
+        "Malaria": 96
+    },
+    {
+        "month": "Oct 2025",
+        "Influenza": 110,
+        "COVID-19": 85,
+        "Dengue": 195,
+        "Tuberculosis": 61,
+        "Malaria": 68
+    },
+    {
+        "month": "Nov 2025",
+        "Influenza": 168,
+        "COVID-19": 102,
+        "Dengue": 124,
+        "Tuberculosis": 66,
+        "Malaria": 45
+    },
+    {
+        "month": "Dec 2025",
+        "Influenza": 245,
+        "COVID-19": 138,
+        "Dengue": 78,
+        "Tuberculosis": 70,
+        "Malaria": 30
+    },
+    {
+        "month": "Jan 2026",
+        "Influenza": 312,
+        "COVID-19": 156,
+        "Dengue": 52,
+        "Tuberculosis": 74,
+        "Malaria": 22
+    },
+    {
+        "month": "Feb 2026",
+        "Influenza": 342,
+        "COVID-19": 89,
+        "Dengue": 156,
+        "Tuberculosis": 67,
+        "Malaria": 28
+    }
+]

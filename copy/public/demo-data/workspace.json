@@ -1,0 +1,33 @@
+{
+    "stats": {
+        "activeCases": "2,847",
+        "activeAlerts": 6,
+        "reportsGenerated": 42
+    },
+    "miniTrend": [
+        {
+            "week": "W1",
+            "cases": 2120
+        },
+        {
+            "week": "W2",
+            "cases": 2285
+        },
+        {
+            "week": "W3",
+            "cases": 2410
+        },
+        {
+            "week": "W4",
+            "cases": 2560
+        },
+        {
+            "week": "W5",
+            "cases": 2695
+        },
+        {
+            "week": "W6",
+            "cases": 2847
+        }
+    ]
+}

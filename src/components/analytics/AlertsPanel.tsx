@@ -1,94 +1,76 @@
-import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, MapPin, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface Alert {
-    id: string;
-    title: string;
-    message: string;
-    severity: "low" | "medium" | "high" | "critical";
-    region?: string;
-    status: "active" | "resolved" | "ignored";
-    created_at: string;
-}
-
-interface AlertsPanelProps {
-    alerts: Alert[];
-}
-
-const severityConfig = {
-    low: { icon: CheckCircle, bg: "bg-green-500/10", text: "text-green-600", badge: "bg-green-100 text-green-700" },
-    medium: { icon: AlertTriangle, bg: "bg-yellow-500/10", text: "text-yellow-600", badge: "bg-yellow-100 text-yellow-700" },
-    high: { icon: AlertTriangle, bg: "bg-orange-500/10", text: "text-orange-600", badge: "bg-orange-100 text-orange-700" },
-    critical: { icon: XCircle, bg: "bg-red-500/10", text: "text-red-600", badge: "bg-red-100 text-red-700" },
-};
-
-// Mock alerts for demo (will come from Supabase `alerts` table later)
-const mockAlerts: Alert[] = [
+// ─── Mock Data (matching GovAlerts page for consistency) ──
+const ALERT_NOTIFICATIONS = [
     {
         id: "1",
         title: "Outbreak Alert: Dengue",
-        message: "Detected 58 cases of Dengue in Mumbai (Threshold: 50)",
+        message: "58 cases in Mumbai (Threshold: 50)",
         severity: "high",
-        region: "Mumbai",
-        status: "active",
-        created_at: new Date().toISOString(),
+        time: "2h ago",
     },
     {
         id: "2",
         title: "Outbreak Alert: Malaria",
-        message: "Detected 35 cases of Malaria in Mumbai (Threshold: 30)",
+        message: "35 cases in Mumbai (Threshold: 30)",
         severity: "high",
-        region: "Mumbai",
-        status: "active",
-        created_at: new Date(Date.now() - 86400000).toISOString(),
+        time: "5h ago",
     },
     {
         id: "3",
         title: "Monitoring: Flu",
-        message: "Flu cases rising in Pune — 18 cases this week",
+        message: "Rising cases in Pune",
         severity: "medium",
-        region: "Pune",
-        status: "active",
-        created_at: new Date(Date.now() - 172800000).toISOString(),
+        time: "1d ago",
     },
 ];
 
-export default function AlertsPanel({ alerts }: AlertsPanelProps) {
-    const displayAlerts = alerts.length > 0 ? alerts : mockAlerts;
-    const activeAlerts = displayAlerts.filter((a) => a.status === "active");
+const severityStyles = {
+    high: "bg-red-50 border-red-100 text-red-900",
+    medium: "bg-yellow-50 border-yellow-100 text-yellow-900",
+    low: "bg-blue-50 border-blue-100 text-blue-900",
+};
+
+export default function AlertsPanel({ alerts = [] }: { alerts?: any[] }) {
+    // Use internal mock if empty props
+    const displayAlerts = alerts.length > 0 ? alerts : ALERT_NOTIFICATIONS;
 
     return (
-        <div className="space-y-3">
-            {activeAlerts.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground text-sm">
-                    <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                    No active alerts
-                </div>
-            ) : (
-                activeAlerts.map((alert) => {
-                    const config = severityConfig[alert.severity];
-                    const Icon = config.icon;
-                    return (
-                        <div
-                            key={alert.id}
-                            className={`flex items-start gap-3 p-3 rounded-lg border ${config.bg}`}
-                        >
-                            <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${config.text}`} />
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-sm font-medium text-foreground">{alert.title}</p>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${config.badge}`}>
-                                        {alert.severity.toUpperCase()}
-                                    </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">{alert.message}</p>
-                                {alert.region && (
-                                    <p className="text-xs text-muted-foreground mt-1">📍 {alert.region}</p>
-                                )}
-                            </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
+                <h3 className="font-semibold text-sm text-gray-800 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    Recent Alerts
+                </h3>
+                <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {displayAlerts.length}
+                </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {displayAlerts.map((alert) => (
+                    <div
+                        key={alert.id}
+                        className={cn(
+                            "p-3 rounded-lg border text-xs transition-colors hover:shadow-sm cursor-default",
+                            severityStyles[alert.severity as keyof typeof severityStyles] || severityStyles.low
+                        )}
+                    >
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="font-bold truncate pr-2">{alert.title}</span>
+                            <span className="text-[10px] opacity-60 shrink-0">{alert.time}</span>
                         </div>
-                    );
-                })
-            )}
+                        <p className="opacity-80 leading-relaxed mb-1.5">{alert.message}</p>
+                    </div>
+                ))}
+            </div>
+
+            <div className="p-2 border-t border-gray-50 bg-gray-50/30 text-center">
+                <button className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                    View All Alerts →
+                </button>
+            </div>
         </div>
     );
 }

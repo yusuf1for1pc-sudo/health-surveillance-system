@@ -117,11 +117,11 @@ const StaffPatientCreate = () => {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <Label>Full Name</Label>
+                <Label>Full Name <span className="text-red-500">*</span></Label>
                 <Input placeholder="John Doe" className="mt-1" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               </div>
               <div>
-                <Label>Phone Number</Label>
+                <Label>Phone Number <span className="text-red-500">*</span></Label>
                 <div className="relative mt-1">
                   <div className="absolute left-3 top-2.5 text-sm font-medium text-muted-foreground">
                     +91
@@ -163,13 +163,27 @@ const StaffPatientCreate = () => {
 
             <div className="space-y-4">
               <div>
-                <Label>Date of Birth</Label>
+                <Label>Date of Birth <span className="text-red-500">*</span></Label>
                 <Input type="date" className="mt-1" value={dob} onChange={(e) => setDob(e.target.value)} required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Blood Type</Label>
-                  <Input placeholder="O+" className="mt-1" value={bloodType} onChange={(e) => setBloodType(e.target.value)} />
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 mt-1"
+                    value={bloodType}
+                    onChange={(e) => setBloodType(e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
                 </div>
                 <div>
                   <Label>Allergies</Label>
@@ -221,15 +235,15 @@ const StaffPatientCreate = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <Label>Street Address</Label>
+                <Label>Street Address <span className="text-red-500">*</span></Label>
                 <Textarea placeholder="123 Main St" value={address} onChange={(e) => setAddress(e.target.value)} required />
               </div>
               <div>
-                <Label>Country</Label>
+                <Label>Country <span className="text-red-500">*</span></Label>
                 <Input placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)} required />
               </div>
               <div>
-                <Label>Pincode</Label>
+                <Label>Pincode <span className="text-red-500">*</span></Label>
                 <Input placeholder="ZIP/Pin" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
               </div>
             </div>

@@ -23,9 +23,9 @@ const StaffWorkspace = () => {
         .map(r => r.patient_id)
     );
 
-    return patients.filter(
-      p => treatedPatientIds.has(p.id) || p.created_by === user.id
-    );
+    return patients
+      .filter(p => treatedPatientIds.has(p.id) || p.created_by === user.id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [patients, records, user]);
 
   // Only records created by this doctor

@@ -1,0 +1,38 @@
+[
+    {
+        "title": "Dengue Outbreak — Maharashtra (Pune & Mumbai)",
+        "severity": "High",
+        "date": "2026-02-14",
+        "description": "390 confirmed cases in the past 14 days across Pune and Mumbai districts. Vector control teams deployed. Hospital surge capacity activated."
+    },
+    {
+        "title": "Influenza A Surge — Delhi NCR",
+        "severity": "High",
+        "date": "2026-02-12",
+        "description": "45% increase in Influenza A (H3N2) cases compared to previous month. ICU admissions up 22%. Vaccination drive recommended."
+    },
+    {
+        "title": "Malaria Cluster — Northeast Region",
+        "severity": "Medium",
+        "date": "2026-02-10",
+        "description": "63 cases of P. falciparum malaria reported in Assam and Meghalaya. Insecticide-treated nets distributed to affected areas."
+    },
+    {
+        "title": "Tuberculosis Case Cluster — Varanasi District",
+        "severity": "Medium",
+        "date": "2026-02-07",
+        "description": "12 new MDR-TB cases identified in a 2-week period. Contact tracing for 180+ individuals initiated. DOTS programme reinforced."
+    },
+    {
+        "title": "COVID-19 Sub-variant Monitoring — Pan-India",
+        "severity": "Low",
+        "date": "2026-02-05",
+        "description": "New JN.1.4 sub-variant detected in 8 states. No significant increase in hospitalization. Genomic surveillance continued."
+    },
+    {
+        "title": "Chikungunya Rise — Kerala (Coastal Districts)",
+        "severity": "Medium",
+        "date": "2026-02-02",
+        "description": "92 cases reported across Ernakulam and Alappuzha districts. 22% increase from previous fortnight. Fogging operations underway."
+    }
+]

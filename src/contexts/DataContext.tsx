@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockPatients as initialMockPatients, mockRecords as initialMockRecords, mockOrganizations, mockStaff } from '@/lib/mockData';
+import { mockPatients as initialMockPatients, mockRecords as initialMockRecords, mockOrganizations, mockStaff } from '../lib/mockData';
 import type { Patient, MedicalRecord, Organization, User } from '@/lib/types';
 
 interface DataContextType {
@@ -57,14 +57,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         try {
             const promises: Promise<any>[] = [
-                supabase.from('patients').select('*').order('created_at', { ascending: false }),
-                supabase.from('medical_records').select('*').order('created_at', { ascending: false }),
+                supabase.from('patients').select('*').order('created_at', { ascending: false }) as any,
+                supabase.from('medical_records').select('*').order('created_at', { ascending: false }) as any,
             ];
 
             // If Admin, fetch organizations
             if (user.role === 'platform_admin') {
                 promises.push(
-                    supabase.from('organizations').select('*').order('created_at', { ascending: false })
+                    supabase.from('organizations').select('*').order('created_at', { ascending: false }) as any
                 );
             }
 

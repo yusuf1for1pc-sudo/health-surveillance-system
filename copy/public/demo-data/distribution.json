@@ -1,0 +1,110 @@
+{
+    "diseaseMetrics": [
+        {
+            "disease": "Influenza A",
+            "icd_code": "J09",
+            "cases": 342,
+            "trend_percent": 12
+        },
+        {
+            "disease": "Dengue Fever",
+            "icd_code": "A90",
+            "cases": 278,
+            "trend_percent": 18
+        },
+        {
+            "disease": "COVID-19",
+            "icd_code": "U07.1",
+            "cases": 156,
+            "trend_percent": -5
+        },
+        {
+            "disease": "Malaria",
+            "icd_code": "B50",
+            "cases": 118,
+            "trend_percent": -8
+        },
+        {
+            "disease": "Tuberculosis",
+            "icd_code": "A15",
+            "cases": 67,
+            "trend_percent": 3
+        },
+        {
+            "disease": "Typhoid Fever",
+            "icd_code": "A01.0",
+            "cases": 52,
+            "trend_percent": -12
+        },
+        {
+            "disease": "Chikungunya",
+            "icd_code": "A92.0",
+            "cases": 38,
+            "trend_percent": 22
+        },
+        {
+            "disease": "Hepatitis A",
+            "icd_code": "B15",
+            "cases": 24,
+            "trend_percent": -3
+        },
+        {
+            "disease": "Leptospirosis",
+            "icd_code": "A27",
+            "cases": 18,
+            "trend_percent": 7
+        }
+    ],
+    "regionData": [
+        {
+            "region": "Maharashtra",
+            "cases": 420,
+            "prev": 365
+        },
+        {
+            "region": "Delhi",
+            "cases": 380,
+            "prev": 340
+        },
+        {
+            "region": "Tamil Nadu",
+            "cases": 285,
+            "prev": 260
+        },
+        {
+            "region": "Karnataka",
+            "cases": 210,
+            "prev": 195
+        },
+        {
+            "region": "West Bengal",
+            "cases": 195,
+            "prev": 220
+        },
+        {
+            "region": "Uttar Pradesh",
+            "cases": 178,
+            "prev": 190
+        },
+        {
+            "region": "Kerala",
+            "cases": 145,
+            "prev": 130
+        },
+        {
+            "region": "Gujarat",
+            "cases": 112,
+            "prev": 105
+        },
+        {
+            "region": "Rajasthan",
+            "cases": 98,
+            "prev": 88
+        },
+        {
+            "region": "Bihar",
+            "cases": 82,
+            "prev": 95
+        }
+    ]
+}

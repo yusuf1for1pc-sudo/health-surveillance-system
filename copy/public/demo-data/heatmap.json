@@ -1,0 +1,159 @@
+{
+    "title": "Disease Heatmap",
+    "subtitle": "Cases by disease × city (Maharashtra)",
+    "cities": [
+        "Mumbai",
+        "Nashik",
+        "Solapur",
+        "Thane",
+        "Nagpur",
+        "Aurangabad",
+        "Pune"
+    ],
+    "diseases": [
+        {
+            "name": "Influenza",
+            "cases": {
+                "Mumbai": 17,
+                "Nashik": 9,
+                "Solapur": 4,
+                "Thane": 0,
+                "Nagpur": 4,
+                "Aurangabad": 3,
+                "Pune": 3
+            }
+        },
+        {
+            "name": "Migraine",
+            "cases": {
+                "Mumbai": 4,
+                "Nashik": 8,
+                "Solapur": 5,
+                "Thane": 5,
+                "Nagpur": 3,
+                "Aurangabad": 5,
+                "Pune": 2
+            }
+        },
+        {
+            "name": "Bronchitis",
+            "cases": {
+                "Mumbai": 10,
+                "Nashik": 7,
+                "Solapur": 3,
+                "Thane": 3,
+                "Nagpur": 3,
+                "Aurangabad": 2,
+                "Pune": 1
+            }
+        },
+        {
+            "name": "Infectious g",
+            "cases": {
+                "Mumbai": 3,
+                "Nashik": 9,
+                "Solapur": 4,
+                "Thane": 1,
+                "Nagpur": 6,
+                "Aurangabad": 1,
+                "Pune": 3
+            }
+        },
+        {
+            "name": "URTI",
+            "cases": {
+                "Mumbai": 8,
+                "Nashik": 3,
+                "Solapur": 6,
+                "Thane": 3,
+                "Nagpur": 1,
+                "Aurangabad": 3,
+                "Pune": 1
+            }
+        },
+        {
+            "name": "Diabetes",
+            "cases": {
+                "Mumbai": 8,
+                "Nashik": 5,
+                "Solapur": 4,
+                "Thane": 1,
+                "Nagpur": 3,
+                "Aurangabad": 3,
+                "Pune": 0
+            }
+        },
+        {
+            "name": "Lipid Disorder",
+            "cases": {
+                "Mumbai": 7,
+                "Nashik": 3,
+                "Solapur": 4,
+                "Thane": 3,
+                "Nagpur": 0,
+                "Aurangabad": 5,
+                "Pune": 1
+            }
+        },
+        {
+            "name": "Dengue",
+            "cases": {
+                "Mumbai": 3,
+                "Nashik": 3,
+                "Solapur": 4,
+                "Thane": 4,
+                "Nagpur": 2,
+                "Aurangabad": 3,
+                "Pune": 3
+            }
+        },
+        {
+            "name": "Typhoid",
+            "cases": {
+                "Mumbai": 5,
+                "Nashik": 2,
+                "Solapur": 3,
+                "Thane": 4,
+                "Nagpur": 2,
+                "Aurangabad": 1,
+                "Pune": 4
+            }
+        },
+        {
+            "name": "Malaria",
+            "cases": {
+                "Mumbai": 6,
+                "Nashik": 1,
+                "Solapur": 2,
+                "Thane": 3,
+                "Nagpur": 4,
+                "Aurangabad": 2,
+                "Pune": 3
+            }
+        },
+        {
+            "name": "Hypertension",
+            "cases": {
+                "Mumbai": 4,
+                "Nashik": 3,
+                "Solapur": 2,
+                "Thane": 2,
+                "Nagpur": 1,
+                "Aurangabad": 3,
+                "Pune": 4
+            }
+        },
+        {
+            "name": "Gastroenteritis",
+            "cases": {
+                "Mumbai": 6,
+                "Nashik": 1,
+                "Solapur": 2,
+                "Thane": 5,
+                "Nagpur": 2,
+                "Aurangabad": 2,
+                "Pune": 2
+            }
+        }
+    ]
+}
