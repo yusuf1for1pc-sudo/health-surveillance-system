@@ -10,6 +10,13 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      '/api/proxy': {
+        target: 'https://jkhkgviyxkmuayenohhd.supabase.co',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/proxy/, ''),
+      },
+    },
   },
   plugins: [react()].filter(Boolean),
   resolve: {
