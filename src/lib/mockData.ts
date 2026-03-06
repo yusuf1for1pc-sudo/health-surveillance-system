@@ -2,7 +2,6 @@ import type { Patient, MedicalRecord, Organization, User, DiseaseMetric, TrendDa
 
 // ─── Disease definitions ──────────────────────────────────
 const DISEASES: { label: string; icd_code: string; diagnosis: string }[] = [
-    { label: 'Influenza A', icd_code: 'J09', diagnosis: 'Influenza' },
     { label: 'Migraine', icd_code: 'G43', diagnosis: 'Migraine' },
     { label: 'Bronchitis', icd_code: 'J40', diagnosis: 'Bronchitis' },
     { label: 'Infectious gastro', icd_code: 'A09', diagnosis: 'Gastroenteritis' },
@@ -14,7 +13,6 @@ const DISEASES: { label: string; icd_code: string; diagnosis: string }[] = [
     { label: 'Malaria', icd_code: 'B50', diagnosis: 'Malaria' },
     { label: 'Gastroenteritis', icd_code: 'A09', diagnosis: 'Gastroenteritis' },
     { label: 'Hypertension', icd_code: 'I10', diagnosis: 'Hypertension' },
-    { label: 'COVID-19', icd_code: 'U07.1', diagnosis: 'COVID-19' },
     { label: 'Tuberculosis', icd_code: 'A15', diagnosis: 'Pulmonary tuberculosis' },
     { label: 'Typhoid Fever', icd_code: 'A01.0', diagnosis: 'Typhoid fever' },
 ];
@@ -64,13 +62,13 @@ const CITIES: CityDef[] = [
 // Reflects screenshot: maharashtra cities x 12 diseases
 // Format: cityName -> diseaseName -> count
 export const HEATMAP_DATA: Record<string, Record<string, number>> = {
-    Mumbai: { 'Influenza A': 17, 'Migraine': 4, 'Bronchitis': 10, 'Infectious gastro': 3, 'URTI': 8, 'Diabetes': 8, 'Lipid Disorder': 7, 'Dengue fever': 3, 'Typhoid': 5, 'Malaria': 6, 'Gastroenteritis': 6, 'Hypertension': 4 },
-    Nashik: { 'Influenza A': 9, 'Migraine': 8, 'Bronchitis': 7, 'Infectious gastro': 9, 'URTI': 3, 'Diabetes': 5, 'Lipid Disorder': 3, 'Dengue fever': 3, 'Typhoid': 2, 'Malaria': 1, 'Gastroenteritis': 1, 'Hypertension': 3 },
-    Solapur: { 'Influenza A': 4, 'Migraine': 5, 'Bronchitis': 3, 'Infectious gastro': 4, 'URTI': 6, 'Diabetes': 4, 'Lipid Disorder': 4, 'Dengue fever': 4, 'Typhoid': 3, 'Malaria': 2, 'Gastroenteritis': 2, 'Hypertension': 2 },
-    Thane: { 'Influenza A': 0, 'Migraine': 5, 'Bronchitis': 3, 'Infectious gastro': 1, 'URTI': 3, 'Diabetes': 1, 'Lipid Disorder': 3, 'Dengue fever': 4, 'Typhoid': 4, 'Malaria': 3, 'Gastroenteritis': 5, 'Hypertension': 2 },
-    Nagpur: { 'Influenza A': 4, 'Migraine': 3, 'Bronchitis': 3, 'Infectious gastro': 6, 'URTI': 1, 'Diabetes': 3, 'Lipid Disorder': 0, 'Dengue fever': 2, 'Typhoid': 2, 'Malaria': 4, 'Gastroenteritis': 2, 'Hypertension': 1 },
-    Aurangabad: { 'Influenza A': 3, 'Migraine': 5, 'Bronchitis': 2, 'Infectious gastro': 1, 'URTI': 3, 'Diabetes': 3, 'Lipid Disorder': 5, 'Dengue fever': 3, 'Typhoid': 1, 'Malaria': 2, 'Gastroenteritis': 2, 'Hypertension': 3 },
-    Pune: { 'Influenza A': 3, 'Migraine': 2, 'Bronchitis': 1, 'Infectious gastro': 3, 'URTI': 1, 'Diabetes': 0, 'Lipid Disorder': 1, 'Dengue fever': 3, 'Typhoid': 4, 'Malaria': 3, 'Gastroenteritis': 2, 'Hypertension': 4 },
+    Mumbai: { 'Migraine': 4, 'Bronchitis': 10, 'Infectious gastro': 3, 'URTI': 8, 'Diabetes': 8, 'Lipid Disorder': 7, 'Dengue fever': 3, 'Typhoid': 5, 'Malaria': 6, 'Gastroenteritis': 6, 'Hypertension': 4 },
+    Nashik: { 'Migraine': 8, 'Bronchitis': 7, 'Infectious gastro': 9, 'URTI': 3, 'Diabetes': 5, 'Lipid Disorder': 3, 'Dengue fever': 3, 'Typhoid': 2, 'Malaria': 1, 'Gastroenteritis': 1, 'Hypertension': 3 },
+    Solapur: { 'Migraine': 5, 'Bronchitis': 3, 'Infectious gastro': 4, 'URTI': 6, 'Diabetes': 4, 'Lipid Disorder': 4, 'Dengue fever': 4, 'Typhoid': 3, 'Malaria': 2, 'Gastroenteritis': 2, 'Hypertension': 2 },
+    Thane: { 'Migraine': 5, 'Bronchitis': 3, 'Infectious gastro': 1, 'URTI': 3, 'Diabetes': 1, 'Lipid Disorder': 3, 'Dengue fever': 4, 'Typhoid': 4, 'Malaria': 3, 'Gastroenteritis': 5, 'Hypertension': 2 },
+    Nagpur: { 'Migraine': 3, 'Bronchitis': 3, 'Infectious gastro': 6, 'URTI': 1, 'Diabetes': 3, 'Lipid Disorder': 0, 'Dengue fever': 2, 'Typhoid': 2, 'Malaria': 4, 'Gastroenteritis': 2, 'Hypertension': 1 },
+    Aurangabad: { 'Migraine': 5, 'Bronchitis': 2, 'Infectious gastro': 1, 'URTI': 3, 'Diabetes': 3, 'Lipid Disorder': 5, 'Dengue fever': 3, 'Typhoid': 1, 'Malaria': 2, 'Gastroenteritis': 2, 'Hypertension': 3 },
+    Pune: { 'Migraine': 2, 'Bronchitis': 1, 'Infectious gastro': 3, 'URTI': 1, 'Diabetes': 0, 'Lipid Disorder': 1, 'Dengue fever': 3, 'Typhoid': 4, 'Malaria': 3, 'Gastroenteritis': 2, 'Hypertension': 4 },
 };
 
 // Geographic distribution (state-level, matches "Geographic Distribution" bar chart)
@@ -89,9 +87,7 @@ export const STATE_DISTRIBUTION: { state: string; current: number; prev: number 
 
 // Top disease metrics for bar chart "Top Diseases"
 export const TOP_DISEASE_STATS: { disease: string; icd_code: string; cases: number }[] = [
-    { disease: 'Influenza A', icd_code: 'J09', cases: 342 },
     { disease: 'Dengue Fever', icd_code: 'A90', cases: 278 },
-    { disease: 'COVID-19', icd_code: 'U07.1', cases: 156 },
     { disease: 'Malaria', icd_code: 'B50', cases: 118 },
     { disease: 'Tuberculosis', icd_code: 'A15', cases: 94 },
     { disease: 'Typhoid Fever', icd_code: 'A01.0', cases: 64 },
@@ -100,9 +96,7 @@ export const TOP_DISEASE_STATS: { disease: string; icd_code: string; cases: numb
 
 // Stat cards: used in upper summary cards
 export const STAT_CARDS = [
-    { disease: 'Influenza A', icd_code: 'J09', cases: 342, trend_percent: 12, trend_up: true },
     { disease: 'Dengue Fever', icd_code: 'A90', cases: 278, trend_percent: 18, trend_up: true },
-    { disease: 'COVID-19', icd_code: 'U07.1', cases: 156, trend_percent: -5, trend_up: false },
     { disease: 'Malaria', icd_code: 'B50', cases: 118, trend_percent: -8, trend_up: false },
 ];
 
@@ -115,7 +109,7 @@ export const mockRecords: MedicalRecord[] = [];
 
 // MH cities (heatmap)
 const MH_CITIES = ['Mumbai', 'Nashik', 'Solapur', 'Thane', 'Nagpur', 'Aurangabad', 'Pune'];
-const MH_DISEASES = ['Influenza A', 'Migraine', 'Bronchitis', 'Infectious gastro', 'URTI', 'Diabetes', 'Lipid Disorder', 'Dengue fever', 'Typhoid', 'Malaria', 'Gastroenteritis', 'Hypertension'];
+const MH_DISEASES = ['Migraine', 'Bronchitis', 'Infectious gastro', 'URTI', 'Diabetes', 'Lipid Disorder', 'Dengue fever', 'Typhoid', 'Malaria', 'Gastroenteritis', 'Hypertension'];
 
 MH_CITIES.forEach(cityName => {
     const cityDef = CITIES.find(c => c.name === cityName)!;
@@ -182,8 +176,6 @@ MH_CITIES.forEach(cityName => {
 
 // Also add patients for other states from STATE_DISTRIBUTION
 const OTHER_STATES_DISEASES = [
-    { label: 'COVID-19', icd_code: 'U07.1', diagnosis: 'COVID-19' },
-    { label: 'Influenza A', icd_code: 'J09', diagnosis: 'Influenza' },
     { label: 'Dengue fever', icd_code: 'A90', diagnosis: 'Dengue fever' },
     { label: 'Malaria', icd_code: 'B50', diagnosis: 'Malaria' },
     { label: 'Tuberculosis', icd_code: 'A15', diagnosis: 'Pulmonary tuberculosis' },
@@ -269,29 +261,29 @@ export const mockDiseaseMetrics: DiseaseMetric[] = STAT_CARDS.map(s => ({
 }));
 
 export const mockTrendData: TrendDataPoint[] = [
-    { month: 'Mar 2025', Influenza: 120, 'COVID-19': 160, Dengue: 55, Tuberculosis: 80, Malaria: 40 },
-    { month: 'Apr 2025', Influenza: 162, 'COVID-19': 118, Dengue: 72, Tuberculosis: 71, Malaria: 41 },
-    { month: 'May 2025', Influenza: 140, 'COVID-19': 90, Dengue: 130, Tuberculosis: 65, Malaria: 50 },
-    { month: 'Jun 2025', Influenza: 120, 'COVID-19': 80, Dengue: 230, Tuberculosis: 60, Malaria: 55 },
-    { month: 'Jul 2025', Influenza: 100, 'COVID-19': 70, Dengue: 300, Tuberculosis: 58, Malaria: 45 },
-    { month: 'Aug 2025', Influenza: 90, 'COVID-19': 65, Dengue: 280, Tuberculosis: 55, Malaria: 42 },
-    { month: 'Sep 2025', Influenza: 85, 'COVID-19': 72, Dengue: 180, Tuberculosis: 60, Malaria: 38 },
-    { month: 'Oct 2025', Influenza: 95, 'COVID-19': 80, Dengue: 120, Tuberculosis: 65, Malaria: 35 },
-    { month: 'Nov 2025', Influenza: 130, 'COVID-19': 95, Dengue: 95, Tuberculosis: 70, Malaria: 32 },
-    { month: 'Dec 2025', Influenza: 180, 'COVID-19': 110, Dengue: 80, Tuberculosis: 78, Malaria: 28 },
-    { month: 'Jan 2026', Influenza: 260, 'COVID-19': 130, Dengue: 60, Tuberculosis: 85, Malaria: 25 },
-    { month: 'Feb 2026', Influenza: 342, 'COVID-19': 156, Dengue: 278, Tuberculosis: 94, Malaria: 118 },
+    { month: 'Mar 2025', Dengue: 55, Tuberculosis: 80, Malaria: 40 },
+    { month: 'Apr 2025', Dengue: 72, Tuberculosis: 71, Malaria: 41 },
+    { month: 'May 2025', Dengue: 130, Tuberculosis: 65, Malaria: 50 },
+    { month: 'Jun 2025', Dengue: 230, Tuberculosis: 60, Malaria: 55 },
+    { month: 'Jul 2025', Dengue: 300, Tuberculosis: 58, Malaria: 45 },
+    { month: 'Aug 2025', Dengue: 280, Tuberculosis: 55, Malaria: 42 },
+    { month: 'Sep 2025', Dengue: 180, Tuberculosis: 60, Malaria: 38 },
+    { month: 'Oct 2025', Dengue: 120, Tuberculosis: 65, Malaria: 35 },
+    { month: 'Nov 2025', Dengue: 95, Tuberculosis: 70, Malaria: 32 },
+    { month: 'Dec 2025', Dengue: 80, Tuberculosis: 78, Malaria: 28 },
+    { month: 'Jan 2026', Dengue: 60, Tuberculosis: 85, Malaria: 25 },
+    { month: 'Feb 2026', Dengue: 278, Tuberculosis: 94, Malaria: 118 },
 ];
 
 export const mockWeeklyTrendData: TrendDataPoint[] = [
-    { month: 'Week 1', Influenza: 28, 'COVID-19': 35, Dengue: 12, Tuberculosis: 18, Malaria: 8 },
-    { month: 'Week 2', Influenza: 32, 'COVID-19': 30, Dengue: 15, Tuberculosis: 19, Malaria: 9 },
-    { month: 'Week 3', Influenza: 35, 'COVID-19': 28, Dengue: 20, Tuberculosis: 18, Malaria: 12 },
-    { month: 'Week 4', Influenza: 45, 'COVID-19': 25, Dengue: 25, Tuberculosis: 20, Malaria: 15 },
-    { month: 'Week 5', Influenza: 50, 'COVID-19': 22, Dengue: 35, Tuberculosis: 22, Malaria: 18 },
-    { month: 'Week 6', Influenza: 42, 'COVID-19': 20, Dengue: 45, Tuberculosis: 21, Malaria: 22 },
-    { month: 'Week 7', Influenza: 38, 'COVID-19': 18, Dengue: 55, Tuberculosis: 20, Malaria: 25 },
-    { month: 'Week 8', Influenza: 45, 'COVID-19': 20, Dengue: 48, Tuberculosis: 23, Malaria: 20 },
+    { month: 'Week 1', Dengue: 12, Tuberculosis: 18, Malaria: 8 },
+    { month: 'Week 2', Dengue: 15, Tuberculosis: 19, Malaria: 9 },
+    { month: 'Week 3', Dengue: 20, Tuberculosis: 18, Malaria: 12 },
+    { month: 'Week 4', Dengue: 25, Tuberculosis: 20, Malaria: 15 },
+    { month: 'Week 5', Dengue: 35, Tuberculosis: 22, Malaria: 18 },
+    { month: 'Week 6', Dengue: 45, Tuberculosis: 21, Malaria: 22 },
+    { month: 'Week 7', Dengue: 55, Tuberculosis: 20, Malaria: 25 },
+    { month: 'Week 8', Dengue: 48, Tuberculosis: 23, Malaria: 20 },
 ];
 
 export const mockRegionData: RegionDataPoint[] = STATE_DISTRIBUTION.map(s => ({

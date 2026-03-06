@@ -37,6 +37,7 @@ import GovWorkspace from "./pages/gov/GovWorkspace";
 import GovSurveillance from "./pages/gov/GovSurveillance";
 import GovAlerts from "./pages/gov/GovAlerts";
 import GovReports from "./pages/gov/GovReports";
+import GovSimulator from "./pages/gov/GovSimulator";
 import Profile from "./pages/profile/Profile";
 import NotFound from "./pages/NotFound";
 
@@ -47,7 +48,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <AuthProvider>
           <DataProvider>
             <Routes>
@@ -99,6 +100,7 @@ const App = () => (
               <Route path="/gov/surveillance" element={<GovSurveillance />} />
               <Route path="/gov/alerts" element={<GovAlerts />} />
               <Route path="/gov/reports" element={<GovReports />} />
+              <Route path="/gov/simulator" element={<GovSimulator />} />
               <Route path="/gov/profile" element={<Profile />} />
 
               <Route path="*" element={<NotFound />} />

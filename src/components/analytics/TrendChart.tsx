@@ -33,14 +33,16 @@ const COLORS = [
     "#eab308", // Yellow
     "#22c55e", // Green
     "#06b6d4", // Cyan
+    "#3b82f6", // Blue
     "#8b5cf6", // Purple
+    "#ec4899", // Pink
 ];
 
-const MA_WINDOW = 3;
-const OUTBREAK_THRESHOLD = 1.5; // 50% increase over baseline
+const OUTBREAK_THRESHOLD = 2.0; // 100% increase over baseline
 
 export default function TrendChart({ records, title = "Disease Trends & Spikes" }: TrendChartProps) {
     const [period, setPeriod] = useState<'weekly' | 'monthly'>('monthly');
+    const MA_WINDOW = 3;
 
     const chartData = useMemo(() => {
         if (!records.length) return [];
@@ -84,10 +86,10 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                 const totalB = data.reduce((sum, row) => sum + (row[b] || 0), 0);
                 return totalB - totalA;
             })
-            .slice(0, 5); // Focus on top 5
+            .slice(0, 7); // Include Leptospirosis by showing top 7
 
         // Enrich data with analytics
-        return data.map((row, index, array) => {
+        const enriched = data.map((row, index, array) => {
             const enrichedRow: any = { ...row };
 
             topDiseases.forEach(disease => {
@@ -113,8 +115,9 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                 }
                 const baseline = baselineCount > 0 ? baselineSum / baselineCount : 0;
 
-                // Flag spike if cases > threshold * baseline AND cases > 2 (ignore noise)
-                if (baseline > 0 && cases > baseline * OUTBREAK_THRESHOLD && cases > 2) {
+                // Flag spike if cases > threshold * baseline AND cases > 15 (ignore noise)
+                // For Leptospirosis specifically, or general major outbreaks
+                if (baseline > 0 && cases > baseline * OUTBREAK_THRESHOLD && cases > 15) {
                     enrichedRow[`${disease}_Spike`] = cases;
                 }
             });
@@ -129,6 +132,12 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
             return enrichedRow;
         });
 
+        if (period === 'weekly') {
+            return enriched.slice(-4);
+        }
+
+        return enriched;
+
     }, [records, period]);
 
     const topDiseases = useMemo(() => {
@@ -136,7 +145,7 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
         const keys = Object.keys(chartData[0]).filter(k =>
             !['date', 'timestamp', 'displayDate'].includes(k) && !k.endsWith('_MA') && !k.endsWith('_Spike')
         );
-        return keys.slice(0, 5); // Top 5
+        return keys.slice(0, 7); // Show all 7 diseases
     }, [chartData]);
 
     // Count total spikes for badge
@@ -160,7 +169,7 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                         )}
                     </CardTitle>
                     <CardDescription>
-                        Moving averages ({MA_WINDOW}-period) and anomaly detection
+                        Moving averages ({MA_WINDOW}-period) and anomaly detection {period === 'weekly' ? '(Last 4 Weeks)' : ''}
                     </CardDescription>
                 </div>
                 <div className="flex bg-muted rounded-lg p-1">

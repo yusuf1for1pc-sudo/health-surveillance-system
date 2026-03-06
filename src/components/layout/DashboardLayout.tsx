@@ -1,9 +1,9 @@
 import { Link, useLocation, useNavigate, Navigate } from "react-router-dom";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useRef, useEffect } from "react";
 import {
   LayoutDashboard, Users, Building2, Shield, User, FileText,
   ClipboardList, Activity, AlertTriangle, BarChart3, Heart,
-  History, CreditCard, Menu, X, LogOut, ChevronLeft, Loader2
+  History, CreditCard, Menu, X, LogOut, ChevronLeft, Loader2, FlaskConical
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -46,6 +46,7 @@ const roleNavItems: Record<string, NavItem[]> = {
     { label: "Surveillance", path: "/gov/surveillance", icon: <Activity className="w-5 h-5" /> },
     { label: "Alerts", path: "/gov/alerts", icon: <AlertTriangle className="w-5 h-5" /> },
     { label: "Reports", path: "/gov/reports", icon: <BarChart3 className="w-5 h-5" /> },
+    { label: "Simulator", path: "/gov/simulator", icon: <FlaskConical className="w-5 h-5" /> },
     { label: "Profile", path: "/gov/profile", icon: <User className="w-5 h-5" /> },
   ],
 };
@@ -68,6 +69,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { signOut, user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const navItems = roleNavItems[role] || [];
   const themeClass = `theme-${role}`;
 
@@ -139,7 +141,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        <div className="p-4 border-t space-y-2">
+        <div className="p-4 border-t space-y-2 relative">
           {user && (
             <div className="px-3 py-2">
               <p className="text-sm font-medium text-foreground truncate">{user.full_name}</p>
@@ -147,12 +149,44 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
             </div>
           )}
           <button
-            onClick={handleSignOut}
+            onClick={() => setShowSignOutModal(true)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <LogOut className="w-5 h-5" />
             Sign Out
           </button>
+
+          {/* Sign-out confirmation popup */}
+          {showSignOutModal && (
+            <>
+              <div className="fixed inset-0 bg-black/20 z-[100]" onClick={() => setShowSignOutModal(false)} />
+              <div className="fixed bottom-4 left-4 w-56 z-[101] bg-card rounded-xl border shadow-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                    <LogOut className="w-4 h-4 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Sign out?</p>
+                    <p className="text-xs text-muted-foreground">You'll need to sign in again</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowSignOutModal(false); }}
+                    className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowSignOutModal(false); handleSignOut(); }}
+                    className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 

@@ -120,7 +120,6 @@ INSERT INTO public.icd_codes (code, name, category) VALUES
 ('A09', 'Infectious gastroenteritis and colitis', 'Infectious'),
 ('J00', 'Acute nasopharyngitis (common cold)', 'Respiratory'),
 ('J18', 'Pneumonia, unspecified organism', 'Respiratory'),
-('U07.1', 'COVID-19, virus identified', 'Viral'),
 ('E11', 'Type 2 diabetes mellitus', 'Endocrine'),
 ('I10', 'Essential (primary) hypertension', 'Cardiovascular')
 ON CONFLICT (code) DO NOTHING;

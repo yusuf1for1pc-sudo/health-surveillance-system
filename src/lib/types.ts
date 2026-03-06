@@ -56,7 +56,10 @@ export interface Patient {
     pincode: string;
     latitude?: number;
     longitude?: number;
+    ward_name?: string;
+    auth_user_id?: string;
     organization_id?: string;
+    status?: string;
     created_by: string; // staff user id
     created_at: string;
     updated_at: string;
@@ -129,4 +132,12 @@ export interface DiagnosisSuggestion {
     icd_label: string;
     confidence: number;
     reasoning: string;
+    suggested_prescriptions?: {
+        name: string;
+        dosage: string;
+        frequency: { morning: boolean; afternoon: boolean; evening: boolean; night: boolean };
+        duration: string;
+        reason: string;
+    }[];
+    suggested_note?: string;
 }

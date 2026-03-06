@@ -205,9 +205,6 @@ SELECT
         WHEN 0 THEN 'A90'
         WHEN 1 THEN 'A90'
         WHEN 2 THEN 'A90'
-        WHEN 3 THEN 'J09'
-        WHEN 4 THEN 'J09'
-        WHEN 5 THEN 'U07.1'
         WHEN 6 THEN 'B51'
         ELSE 'Z00.0'
     END,

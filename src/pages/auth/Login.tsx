@@ -17,16 +17,23 @@ const demoAccounts = [
 
 
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, demoSignIn, user } = useAuth();
+  const { signIn, demoSignIn, sendOtp, verifyOtp, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // OTP State
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   // If user is already authenticated, redirect to their dashboard
   // They can only see this page after signing out
@@ -72,6 +79,44 @@ const Login = () => {
     }
   };
 
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setOtpLoading(true);
+    try {
+      const fullPhone = phone.startsWith("+") ? phone : `+91${phone}`;
+      const result = await sendOtp(fullPhone);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setOtpSent(true);
+      }
+    } catch {
+      setError("Failed to send code.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setOtpLoading(true);
+    try {
+      const fullPhone = phone.startsWith("+") ? phone : `+91${phone}`;
+      const result = await verifyOtp(fullPhone, otp);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.role) {
+        navigate(getRoleRedirectPath(result.role as any), { replace: true });
+      }
+    } catch {
+      setError("Failed to verify code.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
 
 
   return (
@@ -94,43 +139,105 @@ const Login = () => {
           <p className="text-muted-foreground mt-1">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" required />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <div className="relative mt-1.5">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pr-10"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          </div>
+        <Tabs defaultValue="email" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="email">Email & Password</TabsTrigger>
+            <TabsTrigger value="phone">Phone OTP</TabsTrigger>
+          </TabsList>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <TabsContent value="email">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" required />
+              </div>
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <div className="relative mt-1.5">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
-          </Button>
-        </form>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="phone">
+            {!otpSent ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="relative mt-1.5">
+                    <div className="absolute left-3 top-2.5 text-sm font-medium text-muted-foreground">
+                      +91
+                    </div>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="98765 43210"
+                      value={phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setPhone(val);
+                      }}
+                      className="pl-11"
+                      required
+                    />
+                  </div>
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full" disabled={otpLoading || phone.length < 10}>
+                  {otpLoading ? "Sending Code..." : "Send Login Code"}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div>
+                  <Label htmlFor="otp">Enter 6-digit Code</Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    placeholder="123456"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="mt-1.5"
+                    required
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full" disabled={otpLoading || otp.length < 6}>
+                  {otpLoading ? "Verifying..." : "Verify & Login"}
+                </Button>
+                <button type="button" onClick={() => setOtpSent(false)} className="text-sm text-primary w-full mt-2 hover:underline">
+                  Use a different phone number
+                </button>
+              </form>
+            )}
+          </TabsContent>
+        </Tabs>
 
 
 

@@ -93,6 +93,23 @@ const StaffRecordCreate = () => {
     setDiagnosis(aiSuggestion.diagnosis);
     const icd = { code: aiSuggestion.icd_code, label: aiSuggestion.icd_label, category: "" };
     setSelectedIcd(icd);
+
+    if (aiSuggestion.suggested_note && !description) {
+      setDescription(aiSuggestion.suggested_note);
+    }
+
+    if (aiSuggestion.suggested_prescriptions && aiSuggestion.suggested_prescriptions.length > 0) {
+      setType("Prescription");
+      const newMeds = aiSuggestion.suggested_prescriptions.map(med => ({
+        id: crypto.randomUUID(),
+        name: med.name,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        duration: med.duration
+      }));
+      setMedicines([...medicines, ...newMeds]);
+    }
+
     setAiSuggestion(null);
   };
 
@@ -304,6 +321,7 @@ const StaffRecordCreate = () => {
                       placeholder="e.g. Paracetamol"
                       value={newMed.name}
                       onChange={(e) => setNewMed({ ...newMed, name: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMedicine(); } }}
                       className="h-9 mt-1"
                     />
                   </div>
@@ -313,6 +331,7 @@ const StaffRecordCreate = () => {
                       placeholder="e.g. 500mg"
                       value={newMed.dosage}
                       onChange={(e) => setNewMed({ ...newMed, dosage: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); } }}
                       className="h-9 mt-1"
                     />
                   </div>
@@ -391,7 +410,7 @@ const StaffRecordCreate = () => {
 
           {/* AI Suggestion Panel */}
           {aiSuggestion && (
-            <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5 space-y-3">
+            <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary" />
@@ -404,23 +423,47 @@ const StaffRecordCreate = () => {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="text-sm space-y-2">
-                <div>
-                  <span className="text-muted-foreground">Diagnosis: </span>
-                  <span className="text-foreground font-medium">{aiSuggestion.diagnosis}</span>
+              <div className="text-sm space-y-3">
+                <div className="grid grid-cols-1 gap-2 border-b border-primary/10 pb-3">
+                  <div>
+                    <span className="text-muted-foreground">Diagnosis: </span>
+                    <span className="text-foreground font-medium">{aiSuggestion.diagnosis}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">ICD Code: </span>
+                    <span className="text-foreground font-medium">{aiSuggestion.icd_code} — {aiSuggestion.icd_label}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Reasoning: </span>
+                    <span className="text-foreground text-xs">{aiSuggestion.reasoning}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">ICD Code: </span>
-                  <span className="text-foreground font-medium">{aiSuggestion.icd_code} — {aiSuggestion.icd_label}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Reasoning: </span>
-                  <span className="text-foreground text-xs">{aiSuggestion.reasoning}</span>
-                </div>
+
+                {aiSuggestion.suggested_note && (
+                  <div>
+                    <span className="text-muted-foreground block mb-1 font-medium">Suggested Clinical Note:</span>
+                    <span className="text-foreground text-xs italic bg-background/50 p-2 rounded block">{aiSuggestion.suggested_note}</span>
+                  </div>
+                )}
+
+                {aiSuggestion.suggested_prescriptions && aiSuggestion.suggested_prescriptions.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground block mb-2 font-medium">Suggested Prescriptions:</span>
+                    <div className="space-y-2">
+                      {aiSuggestion.suggested_prescriptions.map((px, i) => (
+                        <div key={i} className="bg-background/80 p-2 rounded border text-xs">
+                          <span className="font-semibold">{px.name}</span> ({px.dosage}) — {px.duration}
+                          <div className="text-muted-foreground mt-0.5">Reason: {px.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1 border-t border-primary/10 mt-3 pt-3">
                 <Button type="button" size="sm" onClick={acceptSuggestion} className="h-8 text-xs gap-1">
-                  <Check className="w-3 h-3" />Accept
+                  <Check className="w-3 h-3" />Accept All Suggestions
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => setAiSuggestion(null)} className="h-8 text-xs">
                   Dismiss

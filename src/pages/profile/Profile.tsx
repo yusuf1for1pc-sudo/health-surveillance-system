@@ -30,6 +30,7 @@ const Profile = () => {
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
   const [patientData, setPatientData] = useState<any>(null);
+  const [orgName, setOrgName] = useState<string>("");
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -38,15 +39,26 @@ const Profile = () => {
           .from('patients')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
-          console.log("Fetched Patient Data:", data);
           setPatientData(data);
         }
       }
     };
     fetchPatientData();
+
+    // Fetch org name
+    if (user?.organization_id) {
+      supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', user.organization_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.name) setOrgName(data.name);
+        });
+    }
   }, [user]);
 
   const handleSave = (e: React.FormEvent) => {
@@ -88,7 +100,7 @@ const Profile = () => {
                 <Phone className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <span className="text-muted-foreground">Phone</span>
-                  <p className="text-foreground font-medium">{user?.phone || <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
+                  <p className="text-foreground font-medium">{patientData?.phone || user?.phone || <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                 </div>
               </div>
             )}
@@ -97,7 +109,7 @@ const Profile = () => {
                 <Building2 className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <span className="text-muted-foreground">Organization</span>
-                  <p className="text-foreground font-medium">{user.organization_id}</p>
+                  <p className="text-foreground font-medium">{orgName || user.organization_id}</p>
                 </div>
               </div>
             )}

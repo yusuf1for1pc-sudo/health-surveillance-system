@@ -27,7 +27,10 @@ const OrgStaff = () => {
   const orgId = user?.organization_id;
 
   useEffect(() => {
-    if (!isSupabaseConfigured() || !orgId) return;
+    if (!isSupabaseConfigured() || !orgId) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
 

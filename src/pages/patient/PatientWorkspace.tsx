@@ -20,20 +20,27 @@ const PatientWorkspace = () => {
         <StatCard title="Total Records" value={records.length} subtitle="All medical records" icon={<Heart className="w-5 h-5" />} />
       </div>
       <h2 className="text-lg font-medium text-foreground mb-4">Recent Activity</h2>
-      <div className="space-y-3">
-        {recentItems.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No records yet.</p>
-        ) : (
-          recentItems.map((item) => (
-            <div key={item.id} className="bg-card rounded-xl p-4 card-shadow flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground">{item.record_type} • {item.creator_name}</p>
+      <div className="relative">
+        <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+        <div className="space-y-6">
+          {recentItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground pl-10">No records yet.</p>
+          ) : (
+            recentItems.map((item) => (
+              <div key={item.id} className="relative pl-10 group bg-transparent">
+                <div className="absolute left-2.5 top-2 w-3 h-3 rounded-full bg-primary border-2 border-card" />
+                <div className="bg-card rounded-xl p-4 card-shadow border border-transparent">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-primary">{item.record_type}</span>
+                    <span className="text-xs text-muted-foreground">{item.created_at.split("T")[0]}</span>
+                  </div>
+                  <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">By {item.creator_name}</p>
+                </div>
               </div>
-              <span className="text-xs text-muted-foreground">{item.created_at.split("T")[0]}</span>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

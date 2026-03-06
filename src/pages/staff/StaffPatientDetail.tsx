@@ -1,15 +1,34 @@
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Activity } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
+import type { Patient } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const StaffPatientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getPatient, getRecordsForPatient, patients } = useData();
+  const { getPatient, getRecordsForPatient } = useData();
+
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState("ACTIVE");
+  const [referralOrg, setReferralOrg] = useState("");
+  const [updating, setUpdating] = useState(false);
 
   const patient = getPatient(id || "");
 
@@ -25,17 +44,73 @@ const StaffPatientDetail = () => {
 
   const patientRecords = getRecordsForPatient(patient.id);
 
+  const colors: Record<string, string> = {
+    'ACTIVE': 'bg-amber-100 text-amber-700 border-amber-200',
+    'RECOVERED': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'CRITICAL': 'bg-rose-100 text-rose-700 border-rose-200',
+    'REFERRED': 'bg-purple-100 text-purple-700 border-purple-200',
+  };
+  const statusStr = patient.status || 'ACTIVE';
+  const colorClass = colors[statusStr] || 'bg-gray-100 text-gray-700 border-gray-200';
+
+  const handleStatusUpdate = async () => {
+    setUpdating(true);
+    try {
+      if (newStatus === "REFERRED" && !referralOrg) {
+        toast.error("Please specify a referral organization");
+        return;
+      }
+
+      const updates: Partial<Patient> = {
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      if (newStatus === "REFERRED") {
+        updates.organization_id = referralOrg; // Assuming it refers to org.id, not just name, but for UI sake it's text for now. (You can build a proper org picker later)
+      }
+
+      const { error } = await supabase
+        .from("patients")
+        .update(updates)
+        .eq("id", patient.id);
+
+      if (error) throw error;
+
+      toast.success(`Patient status updated to ${newStatus}`);
+      setStatusOpen(false);
+
+      // Navigate to trigger data reload on mount for demo
+      setTimeout(() => window.location.reload(), 500);
+    } catch (error: any) {
+      toast.error("Failed to update status: " + error.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <DashboardLayout role="staff">
-      <PageHeader
-        title={patient.full_name}
-        description={`Patient ID: ${patient.patient_id}`}
-        action={
-          <Link to="/staff/records/create">
-            <Button><Plus className="w-4 h-4 mr-2" />New Record</Button>
-          </Link>
-        }
-      />
+      <div className="flex items-start justify-between">
+        <PageHeader
+          title={patient.full_name}
+          description={`Patient ID: ${patient.patient_id}`}
+        />
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center px-2.5 py-0.5 mt-1 rounded-full text-[10px] font-medium border uppercase ${colorClass}`}>
+            {statusStr}
+          </span>
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" size="sm" onClick={() => setStatusOpen(true)}>
+              <Activity className="w-4 h-4 mr-2" />
+              Update Status
+            </Button>
+            <Link to="/staff/records/create">
+              <Button size="sm"><Plus className="w-4 h-4 mr-2" />New Record</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Patient Info */}
         <div className="lg:col-span-2 space-y-4">
@@ -100,6 +175,63 @@ const StaffPatientDetail = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Patient Status</DialogTitle>
+            <DialogDescription>
+              Change the medical status for {patient.full_name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {['ACTIVE', 'RECOVERED', 'CRITICAL', 'REFERRED'].map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => {
+                      setNewStatus(status);
+                      if (status !== 'REFERRED') setReferralOrg('');
+                    }}
+                    className={`flex items-center justify-center py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${newStatus === status
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted border-border"
+                      }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {newStatus === 'REFERRED' && (
+              <div className="space-y-2 pt-2">
+                <Label htmlFor="referral">Target Organization ID</Label>
+                <Input
+                  id="referral"
+                  placeholder="e.g. org_abc123"
+                  value={referralOrg}
+                  onChange={(e) => setReferralOrg(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The patient will be transferred to this hospital/clinic.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusOpen(false)} disabled={updating}>Cancel</Button>
+            <Button onClick={handleStatusUpdate} disabled={updating}>
+              {updating ? "Updating..." : "Confirm Update"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

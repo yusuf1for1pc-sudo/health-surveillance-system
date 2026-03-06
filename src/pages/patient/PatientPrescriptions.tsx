@@ -26,7 +26,10 @@ const PatientPrescriptions = () => {
 
   useEffect(() => {
     const fetchPrescriptions = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       try {
         const { data, error } = await supabase
           .from('prescriptions')

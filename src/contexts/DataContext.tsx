@@ -43,12 +43,26 @@ const isDemoUser = (userId?: string) => !userId || userId.startsWith('demo-') ||
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
-    const [patients, setPatients] = useState<Patient[]>(initialMockPatients);
-    const [records, setRecords] = useState<MedicalRecord[]>(initialMockRecords);
+    const [patients, setPatients] = useState<Patient[]>([]);
+    const [records, setRecords] = useState<MedicalRecord[]>([]);
     const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [staff] = useState<User[]>(mockStaff);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const lastFetchKey = React.useRef<string>('');
+
+    // ─── Load mock data ONLY for demo users ────────────────
+    useEffect(() => {
+        if (user && isDemoUser(user.id)) {
+            setPatients(initialMockPatients);
+            setRecords(initialMockRecords);
+            setLoading(false);
+        } else if (!user) {
+            // No user logged in yet — keep empty
+            setPatients([]);
+            setRecords([]);
+            setLoading(false);
+        }
+    }, [user]);
 
     // ─── Fetch from Supabase if real auth user ────────────────
     const fetchData = useCallback(async () => {
@@ -56,15 +70,44 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
         setLoading(true);
         try {
+            // Helper to fetch all pages since Supabase caps at 1000 rows
+            const fetchAll = async (baseQuery: any) => {
+                let allData: any[] = [];
+                let from = 0;
+                const step = 1000;
+                while (true) {
+                    const { data, error } = await baseQuery.range(from, from + step - 1);
+                    if (error) {
+                        console.error('Pagination error:', error);
+                        break;
+                    }
+                    if (!data || data.length === 0) break;
+                    allData = allData.concat(data);
+                    if (data.length < step) break;
+                    from += step;
+                }
+                return allData;
+            };
+
+            // Build queries based on role
+            let patientsQuery = supabase.from('patients').select('*').order('created_at', { ascending: false });
+            let recordsQuery = supabase.from('medical_records').select('*').order('created_at', { ascending: false });
+
+            // For patient role, only fetch their own data
+            if (user.role === 'patient') {
+                patientsQuery = patientsQuery.eq('id', user.id);
+                recordsQuery = recordsQuery.eq('patient_id', user.id);
+            }
+
             const promises: Promise<any>[] = [
-                supabase.from('patients').select('*').order('created_at', { ascending: false }) as any,
-                supabase.from('medical_records').select('*').order('created_at', { ascending: false }) as any,
+                fetchAll(patientsQuery),
+                fetchAll(recordsQuery),
             ];
 
             // If Admin, fetch organizations
             if (user.role === 'platform_admin') {
                 promises.push(
-                    supabase.from('organizations').select('*').order('created_at', { ascending: false }) as any
+                    fetchAll(supabase.from('organizations').select('*').order('created_at', { ascending: false }))
                 );
             }
 
@@ -73,14 +116,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const recordsRes = results[1];
             const orgsRes = user.role === 'platform_admin' ? results[2] : null;
 
-            if (patientsRes.data && patientsRes.data.length > 0) {
-                setPatients(patientsRes.data);
+            // Always overwrite state with Supabase result (even if empty)
+            if (patientsRes) {
+                setPatients(patientsRes);
             }
-            if (recordsRes.data && recordsRes.data.length > 0) {
-                setRecords(recordsRes.data);
+            if (recordsRes) {
+                setRecords(recordsRes);
             }
-            if (orgsRes && orgsRes.data) {
-                setOrganizations(orgsRes.data);
+            if (orgsRes) {
+                setOrganizations(orgsRes);
             }
         } catch (err) {
             console.error('Error fetching data from Supabase:', err);
@@ -129,6 +173,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                         pincode: newPatient.pincode,
                         latitude: newPatient.latitude || null,
                         longitude: newPatient.longitude || null,
+                        ward_name: newPatient.ward_name || null,
+                        auth_user_id: newPatient.auth_user_id || null,
                         organization_id: newPatient.organization_id || null, // Now nullable
                         created_by: newPatient.created_by,
                     })

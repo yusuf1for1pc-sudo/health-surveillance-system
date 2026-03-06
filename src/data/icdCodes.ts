@@ -39,8 +39,6 @@ export const icdCodes: ICDCode[] = [
     { code: 'B17', label: 'Other acute viral hepatitis', category: 'Viral' },
     { code: 'B20', label: 'HIV disease', category: 'Viral' },
     { code: 'B34', label: 'Viral infection of unspecified site', category: 'Viral' },
-    { code: 'U07.1', label: 'COVID-19, virus identified', category: 'Viral' },
-    { code: 'U07.2', label: 'COVID-19, virus not identified', category: 'Viral' },
 
     // ── Neoplasms ───────────────────────────────────────────
     { code: 'C34', label: 'Malignant neoplasm of bronchus and lung', category: 'Neoplasms' },
@@ -90,9 +88,6 @@ export const icdCodes: ICDCode[] = [
     { code: 'J02', label: 'Acute pharyngitis', category: 'Respiratory' },
     { code: 'J03', label: 'Acute tonsillitis', category: 'Respiratory' },
     { code: 'J06', label: 'Acute upper respiratory infections', category: 'Respiratory' },
-    { code: 'J09', label: 'Influenza due to identified avian influenza virus', category: 'Respiratory' },
-    { code: 'J10', label: 'Influenza due to other identified influenza virus', category: 'Respiratory' },
-    { code: 'J11', label: 'Influenza, virus not identified', category: 'Respiratory' },
     { code: 'J12', label: 'Viral pneumonia', category: 'Respiratory' },
     { code: 'J18', label: 'Pneumonia, unspecified organism', category: 'Respiratory' },
     { code: 'J20', label: 'Acute bronchitis', category: 'Respiratory' },

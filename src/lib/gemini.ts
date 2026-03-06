@@ -9,6 +9,8 @@ const SYSTEM_PROMPT = `You are a medical diagnosis assistant. Given a descriptio
 3. The ICD-10 code label
 4. A confidence level (0-1)
 5. Brief reasoning
+6. Suggested prescriptions (array of objects with name, dosage, frequency, duration, reason)
+7. A suggested clinical note
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -16,7 +18,17 @@ Respond ONLY with valid JSON in this exact format:
   "icd_code": "ICD-10 code",
   "icd_label": "ICD-10 label",
   "confidence": 0.85,
-  "reasoning": "brief explanation"
+  "reasoning": "brief explanation",
+  "suggested_prescriptions": [
+    {
+      "name": "Paracetamol",
+      "dosage": "500mg",
+      "frequency": { "morning": true, "afternoon": false, "evening": false, "night": true },
+      "duration": "3 days",
+      "reason": "For fever control"
+    }
+  ],
+  "suggested_note": "Patient presents with... Advised rest and hydration."
 }
 
 Do not include any text outside the JSON object.`;
@@ -29,6 +41,10 @@ const mockSuggestions: Record<string, DiagnosisSuggestion> = {
         icd_label: 'Acute upper respiratory infections',
         confidence: 0.82,
         reasoning: 'Symptoms consistent with viral upper respiratory infection based on reported sore throat, nasal congestion, and mild fever.',
+        suggested_prescriptions: [
+            { name: "Paracetamol", dosage: "500mg", frequency: { morning: true, afternoon: false, evening: false, night: true }, duration: "3 days", reason: "Fever and pain relief" }
+        ],
+        suggested_note: "Patient presents with sore throat and congestion. Vitals stable. Advised rest, warm fluids, and symptom management."
     },
     fever: {
         diagnosis: 'Fever of unknown origin, requires investigation',
@@ -36,6 +52,10 @@ const mockSuggestions: Record<string, DiagnosisSuggestion> = {
         icd_label: 'Fever of other and unknown origin',
         confidence: 0.75,
         reasoning: 'Elevated temperature without clear localizing signs suggests need for further workup.',
+        suggested_prescriptions: [
+            { name: "Paracetamol", dosage: "650mg", frequency: { morning: true, afternoon: true, evening: false, night: true }, duration: "SOS", reason: "Temperature control" }
+        ],
+        suggested_note: "Patient reports high fever. No obvious source of infection. Blood work (CBC, cultures) advised."
     },
     cough: {
         diagnosis: 'Acute bronchitis',
@@ -43,6 +63,11 @@ const mockSuggestions: Record<string, DiagnosisSuggestion> = {
         icd_label: 'Acute bronchitis',
         confidence: 0.78,
         reasoning: 'Persistent cough with possible chest discomfort suggests acute bronchitis.',
+        suggested_prescriptions: [
+            { name: "Dextromethorphan", dosage: "10ml", frequency: { morning: true, afternoon: false, evening: false, night: true }, duration: "5 days", reason: "Cough suppression" },
+            { name: "Azithromycin", dosage: "500mg", frequency: { morning: true, afternoon: false, evening: false, night: false }, duration: "3 days", reason: "Suspected bacterial superinfection" }
+        ],
+        suggested_note: "Patient has persistent dry cough. Lungs clear to auscultation. Prescribed antitussive and short antibiotic course."
     },
     diabetes: {
         diagnosis: 'Type 2 diabetes mellitus',
@@ -50,6 +75,10 @@ const mockSuggestions: Record<string, DiagnosisSuggestion> = {
         icd_label: 'Type 2 diabetes mellitus',
         confidence: 0.90,
         reasoning: 'Elevated blood glucose levels, polyuria, and polydipsia in adult patient consistent with type 2 diabetes.',
+        suggested_prescriptions: [
+            { name: "Metformin", dosage: "500mg", frequency: { morning: true, afternoon: false, evening: false, night: true }, duration: "30 days", reason: "Glycemic control" }
+        ],
+        suggested_note: "Newly elevated fasting glucose. Initiating first-line oral hypoglycemic. Detailed diet and exercise counseling provided."
     },
     headache: {
         diagnosis: 'Migraine without aura',
@@ -57,6 +86,11 @@ const mockSuggestions: Record<string, DiagnosisSuggestion> = {
         icd_label: 'Migraine',
         confidence: 0.72,
         reasoning: 'Recurrent unilateral headache with nausea and photosensitivity consistent with migraine presentation.',
+        suggested_prescriptions: [
+            { name: "Sumatriptan", dosage: "50mg", frequency: { morning: true, afternoon: false, evening: false, night: false }, duration: "SOS", reason: "Acute migraine relief" },
+            { name: "Naproxen", dosage: "500mg", frequency: { morning: false, afternoon: false, evening: false, night: true }, duration: "SOS", reason: "NSAID pain relief" }
+        ],
+        suggested_note: "Patient experiencing severe unilateral throbbing headache. Neuro exam normal. Prescribed triptan for acute abortive therapy."
     },
 };
 

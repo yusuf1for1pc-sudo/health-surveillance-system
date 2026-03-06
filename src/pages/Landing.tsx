@@ -8,22 +8,22 @@ const features = [
   {
     icon: <Building2 className="w-6 h-6" />,
     title: "Organization Management",
-    description: "Register and manage healthcare organizations with certificate verification.",
+    description: "Register healthcare organizations with certificate verification and staff onboarding.",
   },
   {
     icon: <Users className="w-6 h-6" />,
-    title: "Staff Management",
-    description: "Onboard doctors and lab staff with credential verification workflows.",
+    title: "AI Clinical Suggestions",
+    description: "Gemini-powered prescription and clinical note generation for medical staff.",
   },
   {
     icon: <FileText className="w-6 h-6" />,
-    title: "Medical Records",
-    description: "Create, store, and share prescriptions, lab reports, and clinical notes.",
+    title: "Prophet Forecasting",
+    description: "Time-series disease forecasting with confidence intervals and outbreak simulation.",
   },
   {
     icon: <Activity className="w-6 h-6" />,
-    title: "Disease Surveillance",
-    description: "Government-level analytics for monitoring public health trends.",
+    title: "ML Surveillance",
+    description: "DBSCAN hotspot detection, Isolation Forest anomalies, and R-value monitoring.",
   },
 ];
 
@@ -72,7 +72,7 @@ const Landing = () => {
               Your Trusted Partner for Better Healthcare
             </h1>
             <p className="mt-4 text-lg text-muted-foreground max-w-lg">
-              A unified platform connecting organizations, medical staff, patients, and government agencies for seamless healthcare delivery.
+              AI-powered health surveillance connecting organizations, medical staff, patients, and government agencies with Prophet forecasting, anomaly detection, and Gemini AI reports.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/register/organization">
@@ -89,9 +89,9 @@ const Landing = () => {
             {/* Quick stats */}
             <div className="mt-12 grid grid-cols-3 gap-6">
               {[
-                { value: "Multi-Role", label: "Access Control" },
-                { value: "Secure", label: "Data Storage" },
-                { value: "Real-time", label: "Analytics" },
+                { value: "Prophet ML", label: "Forecasting Engine" },
+                { value: "DBSCAN", label: "Hotspot Detection" },
+                { value: "Gemini AI", label: "Situation Reports" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <p className="text-sm font-semibold text-primary">{stat.value}</p>

@@ -1,8 +1,6 @@
 {
     "diseaseMetrics": [
         {
-            "disease": "Influenza A",
-            "icd_code": "J09",
             "cases": 342,
             "trend_percent": 12
         },
@@ -13,8 +11,6 @@
             "trend_percent": 18
         },
         {
-            "disease": "COVID-19",
-            "icd_code": "U07.1",
             "cases": 156,
             "trend_percent": -5
         },

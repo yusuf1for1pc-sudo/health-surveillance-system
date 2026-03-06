@@ -15,6 +15,8 @@ interface AuthContextType {
     user: AuthUser | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<{ error?: string; role?: string }>;
+    sendOtp: (phone: string) => Promise<{ error?: string }>;
+    verifyOtp: (phone: string, token: string) => Promise<{ error?: string; role?: string }>;
     signUp: (data: { email: string; password: string; full_name: string; phone?: string; role?: UserRole; metadata?: Record<string, any> }) => Promise<{ data?: any; error?: string }>;
     demoSignIn: (email: string) => Promise<{ role: string }>;
     signOut: () => Promise<void>;
@@ -77,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         let profile: any = null;
                         try {
                             const result = await Promise.race([
-                                supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+                                supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
                                 new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Profile fetch timeout')), 5000))
                             ]) as any;
                             profile = result?.data;
@@ -104,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                                     .from('organizations')
                                     .select('status')
                                     .eq('id', orgId)
-                                    .single();
+                                    .maybeSingle();
 
                                 if (orgData && orgData.status !== 'approved') {
                                     console.log('[Session] Org not approved, signing out. Status:', orgData.status);
@@ -169,7 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                                 .from('profiles')
                                 .select('*')
                                 .eq('id', session.user.id)
-                                .single();
+                                .maybeSingle();
 
                             if (profile) {
                                 role = (profile.role as UserRole) || role;
@@ -239,7 +241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 // Fetch profile — fast, single row lookup
                 let profile: any = null;
                 try {
-                    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+                    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
                     profile = profileData;
                 } catch { }
 
@@ -252,7 +254,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             .from('organizations')
                             .select('status')
                             .eq('id', profile.organization_id)
-                            .single();
+                            .maybeSingle();
 
                         if (orgData && orgData.status !== 'approved') {
                             await supabase.auth.signOut({ scope: 'local' });
@@ -284,6 +286,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         } catch (err: any) {
             return { error: err.message || 'Unable to connect to authentication server.' };
+        } finally {
+            skipAuthRedirect.current = false;
+        }
+    };
+
+    // ─── OTP Login ────────────────────────────────────────────────
+    const sendOtp = async (phone: string): Promise<{ error?: string }> => {
+        if (!isSupabaseConfigured()) {
+            return { error: 'Authentication service is not configured.' };
+        }
+        try {
+            const { error } = await supabase.auth.signInWithOtp({ phone });
+            if (error) return { error: error.message };
+            return {};
+        } catch (err: any) {
+            return { error: err.message || 'Unable to send OTP.' };
+        }
+    };
+
+    const verifyOtp = async (phone: string, token: string): Promise<{ error?: string; role?: string }> => {
+        if (!isSupabaseConfigured()) {
+            return { error: 'Authentication service is not configured.' };
+        }
+
+        skipAuthRedirect.current = true;
+        try {
+            setUser(null);
+            localStorage.removeItem('tempest_demo_user');
+            const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+
+            if (data?.session && data?.user) {
+                const metadata = data.user.user_metadata || {};
+                let profile: any = null;
+                try {
+                    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+                    profile = profileData;
+                } catch { }
+
+                const role = (profile?.role as UserRole) || (metadata.role as UserRole) || 'patient';
+
+                setUser({
+                    id: data.user.id,
+                    email: data.user.email || '',
+                    full_name: profile?.full_name || metadata.full_name || 'User',
+                    role,
+                    phone: profile?.phone,
+                    organization_id: profile?.organization_id,
+                });
+
+                return { role };
+            }
+            if (error) return { error: error.message };
+            return { error: 'No user returned.' };
+        } catch (err: any) {
+            return { error: err.message || 'Unable to verify OTP.' };
         } finally {
             skipAuthRedirect.current = false;
         }
@@ -360,7 +417,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 .from('profiles')
                 .select('*')
                 .eq('id', data.user.id)
-                .single();
+                .maybeSingle();
 
             const role = (profile?.role as UserRole) || 'patient';
             setUser({
@@ -387,7 +444,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     .from('profiles')
                     .select('*')
                     .eq('id', session.user.id)
-                    .single();
+                    .maybeSingle();
 
                 setUser({
                     id: session.user.id,
@@ -418,7 +475,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signIn, signUp, demoSignIn, signOut, skipAuthRedirect, finishRegistration }}>
+        <AuthContext.Provider value={{ user, loading, signIn, sendOtp, verifyOtp, signUp, demoSignIn, signOut, skipAuthRedirect, finishRegistration }}>
             {children}
         </AuthContext.Provider>
     );

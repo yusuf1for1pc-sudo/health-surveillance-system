@@ -13,6 +13,25 @@ import { StateSearch } from "@/components/ui/StateSearch";
 import CitySearch from "@/components/ui/CitySearch";
 import LocationSearch from "@/components/ui/LocationSearch";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/lib/supabase";
+
+const PINCODE_WARD_MAP: Record<string, string> = {
+  "400037": "Wadala",
+  "400015": "Sewri",
+  "400005": "Colaba",
+  "400001": "Fort",
+  "400019": "Matunga",
+  "400014": "Dadar",
+  "421301": "Kalyan West",
+  "421306": "Kalyan East",
+  "421201": "Dombivli",
+  "400703": "Vashi",
+  "400614": "Belapur",
+  "400706": "Nerul",
+  "411005": "Shivajinagar",
+  "411028": "Hadapsar",
+  "411017": "Pimpri"
+};
 
 // ...
 
@@ -45,10 +64,34 @@ const StaffPatientCreate = () => {
     setSubmitting(true);
     setError("");
     try {
+      const fullPhone = phone ? `+91${phone}` : '';
+      let authUserId = undefined;
+
+      // Auto-detect ward
+      const wardName = PINCODE_WARD_MAP[pincode] || undefined;
+
+      // Create Patient Auth Account via Edge Function
+      if (fullPhone && user?.organization_id) {
+        const { data: authData, error: authError } = await supabase.functions.invoke('create_patient_auth', {
+          body: {
+            phone: fullPhone,
+            fullName,
+            organizationId: user.organization_id
+          }
+        });
+
+        if (authError) {
+          console.warn("Auth creation warning:", authError);
+          // If already registered, it might throw or return an error depending on how fetch works, but we continue anyway
+        } else if (authData?.user_id) {
+          authUserId = authData.user_id;
+        }
+      }
+
       const patient = await addPatient({
         patient_id: '',
         full_name: fullName,
-        phone: phone ? `+91${phone}` : '',
+        phone: fullPhone,
         email: email || undefined,
         gender: gender as 'Male' | 'Female' | 'Other',
         date_of_birth: dob,
@@ -62,7 +105,9 @@ const StaffPatientCreate = () => {
         pincode,
         latitude: latitude || undefined,
         longitude: longitude || undefined,
-        organization_id: user?.organization_id || undefined, // undefined if null
+        ward_name: wardName,
+        auth_user_id: authUserId,
+        organization_id: user?.organization_id || undefined,
         created_by: user?.id || '',
       });
       setCreatedPatient({ id: patient.id, patientId: patient.patient_id, name: patient.full_name });

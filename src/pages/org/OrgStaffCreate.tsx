@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileCheck, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const OrgStaffCreate = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [staffType, setStaffType] = useState("doctor");
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -46,7 +48,6 @@ const OrgStaffCreate = () => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
-            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraGtndml5eGttdWF5ZW5vaGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwNTY2OTQsImV4cCI6MjA4NjYzMjY5NH0.WDZ4eAyxloZqsrnN_8Bt1VF8EdOpxZoZFRZeKIJT4aI",
           },
           body: JSON.stringify({
             email,
@@ -137,6 +138,7 @@ const OrgStaffCreate = () => {
               className="mt-1.5 h-11 sm:h-10"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              required
             />
           </div>
           <div>

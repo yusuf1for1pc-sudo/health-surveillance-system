@@ -1,19 +1,110 @@
 import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import StatusBadge from "@/components/dashboard/StatusBadge";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
-const staffData: Record<string, any> = {
-  "1": { name: "Dr. Emily Watson", type: "Doctor", certificate: "verified" as const, email: "e.watson@hospital.com", phone: "+1 555-0201", specialization: "General Medicine", joinedDate: "2025-08-01", patientCount: 42, recordCount: 186 },
-  "2": { name: "Dr. Michael Patel", type: "Doctor", certificate: "pending" as const, email: "m.patel@hospital.com", phone: "+1 555-0202", specialization: "Internal Medicine", joinedDate: "2025-11-15", patientCount: 28, recordCount: 95 },
-  "3": { name: "Lisa Chen", type: "Lab Staff", certificate: "verified" as const, email: "l.chen@hospital.com", phone: "+1 555-0203", specialization: "Hematology", joinedDate: "2025-07-10", patientCount: 0, recordCount: 234 },
-  "4": { name: "James Rodriguez", type: "Lab Staff", certificate: "pending" as const, email: "j.rodriguez@hospital.com", phone: "+1 555-0204", specialization: "Biochemistry", joinedDate: "2026-01-05", patientCount: 0, recordCount: 67 },
-};
+interface StaffDetail {
+  id: string;
+  name: string;
+  type: string;
+  email: string;
+  phone: string;
+  certificate: "verified" | "pending";
+  joinedDate: string;
+  patientCount: number;
+  recordCount: number;
+}
 
 const OrgStaffDetail = () => {
   const { id } = useParams();
-  const staff = staffData[id || "1"] || staffData["1"];
+  const [staff, setStaff] = useState<StaffDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id || !isSupabaseConfigured()) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchStaffData = async () => {
+      setLoading(true);
+      try {
+        // 1. Fetch Profile
+        const { data: profile, error: profileErr } = await supabase
+          .from("profiles")
+          .select("id, full_name, role, email, phone, created_at")
+          .eq("id", id)
+          .single();
+
+        if (profileErr) throw profileErr;
+
+        // 2. Fetch Record Count Created by Staff
+        const { count: recordCount, error: recordErr } = await supabase
+          .from("medical_records")
+          .select("*", { count: "exact", head: true })
+          .eq("created_by", id);
+
+        // 3. Fetch Patient Count (Unique patients this staff created records for)
+        // Since we don't have a direct "staff created patient" link that's guaranteed,
+        // we count unique patient_ids in the medical_records they created.
+        const { data: uniquePatients, error: patientErr } = await supabase
+          .from("medical_records")
+          .select("patient_id")
+          .eq("created_by", id);
+
+        const uniquePatientCount = uniquePatients
+          ? new Set(uniquePatients.map(r => r.patient_id)).size
+          : 0;
+
+        setStaff({
+          id: profile.id,
+          name: profile.full_name || "Unknown",
+          type: profile.role === "doctor" ? "Doctor" : "Lab Staff",
+          email: profile.email || "N/A",
+          phone: profile.phone || "N/A",
+          certificate: "verified", // Hardcoded to verified for demo, ideally add to profiles
+          joinedDate: new Date(profile.created_at).toLocaleDateString(),
+          patientCount: uniquePatientCount,
+          recordCount: recordCount || 0,
+        });
+
+      } catch (err) {
+        console.error("Error fetching staff details:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStaffData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <DashboardLayout role="org">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!staff) {
+    return (
+      <DashboardLayout role="org">
+        <div className="mb-4">
+          <Link to="/org/staff" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Back to Staff
+          </Link>
+        </div>
+        <div className="bg-card rounded-xl p-12 text-center card-shadow">
+          <p className="text-muted-foreground">Staff member not found.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout role="org">
@@ -22,12 +113,12 @@ const OrgStaffDetail = () => {
           <ArrowLeft className="w-4 h-4" /> Back to Staff
         </Link>
       </div>
-      <PageHeader title={staff.name} description={`${staff.type} • ${staff.specialization}`} />
+      <PageHeader title={staff.name} description={staff.type} />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-card rounded-xl p-5 card-shadow text-center">
           <p className="text-2xl font-semibold text-foreground">{staff.patientCount}</p>
-          <p className="text-sm text-muted-foreground">Patients</p>
+          <p className="text-sm text-muted-foreground">Patients Treated</p>
         </div>
         <div className="bg-card rounded-xl p-5 card-shadow text-center">
           <p className="text-2xl font-semibold text-foreground">{staff.recordCount}</p>
