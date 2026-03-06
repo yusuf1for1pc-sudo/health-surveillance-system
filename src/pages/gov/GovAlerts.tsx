@@ -77,6 +77,9 @@ const GovAlerts = () => {
     });
   }
 
+  // Sort alerts by date, newest first
+  alerts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   const handleSend = (id: string, type: string, disease: string, severity: string) => {
     setSentIds((prev) => new Set([...prev, id]));
 

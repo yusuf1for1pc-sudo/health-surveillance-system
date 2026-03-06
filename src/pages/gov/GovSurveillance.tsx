@@ -15,6 +15,8 @@ import { Map as MapIcon, LayoutGrid, TrendingUp, TrendingDown } from "lucide-rea
 import { getForecast, getClusters } from "@/lib/mlApi";
 import type { ForecastResponse } from "@/lib/mlApi";
 import GeoFilterBar from "@/components/gov/GeoFilterBar";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ─── Chart colors ─────────────────────────────────────────
 const TREND_COLORS: Record<string, string> = {
@@ -71,7 +73,7 @@ const TrendTooltip = ({ active, payload, label }: any) => {
 
 // ─── Main component ───────────────────────────────────────
 const GovSurveillance = () => {
-  const { records, patients } = useData();
+  const { records, patients, loading } = useData();
   const [trendPeriod, setTrendPeriod] = useState<"monthly" | "weekly">("monthly");
   const [heatmapView, setHeatmapView] = useState<"map" | "table">("table");
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
@@ -107,7 +109,7 @@ const GovSurveillance = () => {
           if (ward && !p.ward_name?.toLowerCase().includes(ward.toLowerCase())) return false;
           return true;
         })
-        .map(p => p.patient_id || p.id)
+        .map(p => p.id)
     );
 
     return validRecords.filter(r => validPatientIds.has(r.patient_id));
@@ -170,7 +172,10 @@ const GovSurveillance = () => {
     colArray.forEach(c => cTotals[c] = 0);
     ALLOWED_DISEASES.forEach(d => dTotals[d] = 0);
 
-    filteredRecords.forEach(r => {
+    const cutoff = subDays(new Date(), 90);
+    const recentRecords = filteredRecords.filter(r => r.created_at && isAfter(parseISO(r.created_at), cutoff));
+
+    recentRecords.forEach(r => {
       const dis = normalizeDiseaseName(r.diagnosis || r.icd_label || "");
       if (!ALLOWED_DISEASES.includes(dis)) return;
 
@@ -300,7 +305,9 @@ const GovSurveillance = () => {
 
           {/* ─── Disease Trends line chart ────────────────── */}
           <div className="mb-6">
-            <TrendChart records={filteredRecords} />
+            <ErrorBoundary title="Failed to load disease trends">
+              {loading ? <Skeleton className="h-[460px] w-full rounded-xl bg-slate-100" /> : <TrendChart records={filteredRecords} />}
+            </ErrorBoundary>
           </div>
 
           {/* ─── Top Diseases bar + Distribution donut ───── */}
@@ -438,15 +445,21 @@ const GovSurveillance = () => {
             {heatmapView === "map" ? (
               /* ── Leaflet Map ── */
               <div className="h-[480px] relative w-full p-4">
-                <DiseaseHeatmap
-                  records={filteredRecords}
-                  patients={patients}
-                  selectedState={state}
-                  selectedCity={city}
-                  selectedWard={ward}
-                  clusters={clusters}
-                  showClusters={showClusters}
-                />
+                <ErrorBoundary title="Failed to load geographic heatmap">
+                  {loading ? (
+                    <Skeleton className="h-full w-full rounded-xl bg-slate-100" />
+                  ) : (
+                    <DiseaseHeatmap
+                      records={filteredRecords}
+                      patients={patients}
+                      selectedState={state}
+                      selectedCity={city}
+                      selectedWard={ward}
+                      clusters={clusters}
+                      showClusters={showClusters}
+                    />
+                  )}
+                </ErrorBoundary>
               </div>
             ) : (
               /* ── Disease × City heatmap table ── */
@@ -527,8 +540,8 @@ const GovSurveillance = () => {
             ) : (
               <div className="flex-1 overflow-auto space-y-3 pr-2">
                 {heatmapCols.map(loc => {
-                  const totalPatients = cityTotals[loc] || 0;
-                  if (totalPatients === 0) return null;
+                  const totalCases = cityTotals[loc] || 0;
+                  if (totalCases === 0) return null;
 
                   // Find top disease for this location
                   let topDisease = "None";
@@ -557,8 +570,8 @@ const GovSurveillance = () => {
                     <div key={loc} className="p-3 bg-slate-50 border border-slate-100 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-semibold text-sm text-slate-800">{loc}</span>
-                        <span className="text-xs bg-white px-2 py-0.5 rounded-full border border-slate-200 font-medium">
-                          {totalPatients} Patients
+                        <span className="text-xs bg-white px-2 py-0.5 rounded-full border border-slate-200 font-medium text-slate-600">
+                          {totalCases} Recent Cases
                         </span>
                       </div>
                       <div className="flex flex-col gap-1">

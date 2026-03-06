@@ -19,6 +19,7 @@ interface DiseaseHeatmapProps {
         longitude?: number;
         city?: string;
         state?: string;
+        ward_name?: string;
     }>;
     selectedState?: string;
     selectedCity?: string;
@@ -116,13 +117,55 @@ export default function DiseaseHeatmap({ records, patients, selectedState, selec
         if (showClusters && clusters && clusters.length > 0) {
             const group = L.layerGroup().addTo(map);
             clusters.forEach((c) => {
+                let color = '#facc15'; // yellow (1-5 cases)
+                if (c.size > 10) color = '#ef4444'; // red
+                else if (c.size > 5) color = '#f97316'; // orange
+
+                const radius = Math.min(400, 200 + c.size * 10);
+
+                // Determine Ward and Disease by inspecting the first point's patient
+                const samplePatientId = c.points?.[0]?.patient_id;
+                const samplePatient = patients.find(p => p.id === samplePatientId || p.patient_id === samplePatientId);
+                const clusterWard = samplePatient?.ward_name || samplePatient?.city || selectedCity || "Localized";
+
+                const sampleRecord = records.find(r => r.patient_id === samplePatientId);
+                const clusterDisease = sampleRecord?.diagnosis || sampleRecord?.icd_label || "Multiple/Unknown";
+
+                const popupHTML = `
+                    <div class="text-xs p-1" style="min-width: 140px;">
+                        <b class="text-sm block mb-1">${clusterWard} Cluster</b>
+                        <div class="flex justify-between border-b pb-1 mb-1">
+                            <span class="text-slate-500">Disease:</span> 
+                            <span class="font-medium">${clusterDisease}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Cases:</span> 
+                            <span class="font-bold text-red-600">${c.size}</span>
+                        </div>
+                    </div>
+                `;
+
+                // Add circle centered on DBSCAN centroid
                 L.circle([c.center.lat, c.center.lng], {
-                    color: '#ef4444',
-                    fillColor: '#ef4444',
-                    fillOpacity: 0.4,
-                    radius: c.size * 300 // Scale radius by cluster size
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.25,
+                    opacity: 0.7,
+                    radius: radius
                 })
-                    .bindPopup(`<div class="text-xs p-1"><b>Cluster ${c.id}</b><br/>${c.size} localized cases</div>`)
+                    .bindPopup(popupHTML)
+                    .addTo(group);
+
+                // Add numeric badge marker
+                const badgeIcon = L.divIcon({
+                    className: 'custom-cluster-badge',
+                    html: `<div style="background-color: ${color}; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${c.size}</div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+
+                L.marker([c.center.lat, c.center.lng], { icon: badgeIcon })
+                    .bindPopup(popupHTML)
                     .addTo(group);
             });
             clusterLayerRef.current = group;

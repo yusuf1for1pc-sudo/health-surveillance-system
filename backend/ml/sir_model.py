@@ -12,7 +12,7 @@ from typing import Optional
 DEFAULT_SIR_PARAMS = {
     "Dengue":         {"beta": 0.35, "gamma": 1/14, "N": 10000, "description": "Vector-borne, 14-day avg recovery"},
     "Malaria":        {"beta": 0.25, "gamma": 1/21, "N": 10000, "description": "Vector-borne, 21-day avg recovery"},
-    "Leptospirosis":  {"beta": 0.20, "gamma": 1/10, "N": 10000, "description": "Water-borne, 10-day avg recovery"},
+    "Leptospirosis":  {"beta": 0.20, "gamma": 1/12, "N": 5000, "description": "Water-borne, 12-day avg recovery"},
     "Typhoid":        {"beta": 0.30, "gamma": 1/14, "N": 10000, "description": "Water/food-borne, 14-day avg recovery"},
     "Tuberculosis":   {"beta": 0.10, "gamma": 1/180, "N": 10000, "description": "Airborne, 6-month avg treatment"},
     "COVID-19":       {"beta": 0.40, "gamma": 1/10, "N": 10000, "description": "Airborne, 10-day avg recovery"},

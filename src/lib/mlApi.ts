@@ -76,6 +76,16 @@ export interface SituationReportResponse {
 
 // ─── API Functions ──────────────────────────────────────────
 
+/** Check if the ML Backend is online */
+export async function checkHealth(): Promise<boolean> {
+    try {
+        const res = await fetch(`${ML_API_BASE}/`, { method: "GET" });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 async function fetchML<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
     const url = new URL(endpoint, ML_API_BASE);
     if (params) {

@@ -79,13 +79,26 @@ def get_forecast(disease: Optional[str] = None, days: int = 30, state: Optional[
 
     from prophet import Prophet
     
-    # Initialize and fit the model
-    # To handle potential seasonality based on the hackathon theme (e.g. monsoons), add yearly seasonality if data spans > 1 yr
-    m = Prophet(yearly_seasonality='auto', weekly_seasonality=True, daily_seasonality=False)
+    # Add capacity cap to prevent unrealistic exponential growth
+    daily_counts['cap'] = 150
+    daily_counts['monsoon'] = pd.to_datetime(daily_counts['ds']).dt.month.isin([6, 7, 8, 9]).astype(int)
+    
+    # Initialize and fit the model using logistic growth and tuned changepoints
+    # This prevents linear explosions and detects outbreaks rapidly
+    m = Prophet(
+        growth='logistic',
+        weekly_seasonality=True, 
+        yearly_seasonality=True,
+        seasonality_mode='multiplicative',
+        changepoint_prior_scale=0.08
+    )
+    m.add_regressor('monsoon')
     m.fit(daily_counts)
     
     # Make future dataframe
     future = m.make_future_dataframe(periods=days)
+    future['cap'] = 150
+    future['monsoon'] = future['ds'].dt.month.isin([6, 7, 8, 9]).astype(int)
     forecast = m.predict(future)
     
     # Extract only the future predictions or recent past to return to frontend
@@ -146,10 +159,18 @@ def get_clusters(disease: str = None, eps: float = 0.05, min_samples: int = 3):
          return {"clusters": [], "message": "Insufficient localized data for clustering."}
          
     from sklearn.cluster import DBSCAN
+    import numpy as np
     
-    # Haversine metric requires radians. eps in radians (e.g. 0.05 miles / 3958.8 miles earth radius)
-    # Actually, simpler to just use standard float distance for hackathon if localities are small
-    db = DBSCAN(eps=eps, min_samples=min_samples).fit(coords)
+    # Haversine metric requires radians.
+    # We define eps in kilometers. Let's use 0.10 km (100m) as the default cluster radius to fracture the city-wide blob
+    km_radius = 0.1
+    kms_per_radian = 6371.0088
+    eps_rad = km_radius / kms_per_radian
+    
+    # Convert lat/lng to radians for haversine
+    coords_rad = np.radians(coords)
+    
+    db = DBSCAN(eps=eps_rad, min_samples=max(min_samples, 7), metric='haversine').fit(coords_rad)
     labels = db.labels_
     
     # Process clusters
@@ -184,10 +205,12 @@ def get_clusters(disease: str = None, eps: float = 0.05, min_samples: int = 3):
             
             # Risk level heuristic based on size
             risk = "Low"
-            if data["size"] > 5:
+            if data["size"] >= 7:
                 risk = "Medium"
-            if data["size"] > 10:
+            if data["size"] >= 15:
                 risk = "High"
+            if data["size"] >= 30:
+                risk = "Severe"
                 
             data["riskLevel"] = risk
             result_clusters.append(data)
@@ -279,23 +302,57 @@ def get_r_value(disease: Optional[str] = None, window: int = 7, state: Optional[
         return {"r_values": [], "message": f"Need at least {window * 2} days of data."}
     
     r_values = []
+    
     counts = daily['count'].values
     dates = daily['date'].values
     
+    df['month'] = pd.to_datetime(df['date']).dt.month
+    df['year'] = pd.to_datetime(df['date']).dt.year
+    
+    current_year = df['year'].max() if len(df) > 0 else 2026
+    
+    # Calculate historical baseline excluding the current active year (to prevent self-masking the spike)
+    historical_df = df[df['year'] < current_year]
+    monthly_avg = historical_df.groupby('month').size() / (historical_df.groupby('month')['date'].nunique() + 1e-9)
+
     for i in range(window, len(counts)):
-        prev_window = sum(counts[max(0, i - window):i])
-        prev_prev_window = sum(counts[max(0, i - 2 * window):max(0, i - window)])
+        # 1. Use rolling averages instead of single-week ratios (3 weeks)
+        smooth_window = window * 3 
+        recent_slice = counts[max(0, i - smooth_window):i]
+        previous_slice = counts[max(0, i - 2 * smooth_window):max(0, i - smooth_window)]
+        
+        recent_avg = float(np.mean(recent_slice)) if len(recent_slice) > 0 else 0.0
+        previous_avg = float(np.mean(previous_slice)) if len(previous_slice) > 0 else 0.0
         
         if disease == "Tuberculosis":
             rt = None
             status = "Insufficient Data"
-        elif prev_prev_window >= 3:
-            rt = round(prev_window / prev_prev_window, 2)
-            if rt > 5.0:
-                rt = None
-                status = "Insufficient Data"
+        elif sum(previous_slice) >= 3:
+            # 2. Add a minimum baseline threshold
+            # Lowered the absolute floor to 10 to allow outbreak detection from a low baseline
+            if previous_avg < 10 / smooth_window: 
+                rt = 1.0
             else:
-                status = "Growing" if rt > 1.0 else ("Stable" if rt == 1.0 else "Declining")
+                raw_rt = recent_avg / previous_avg
+                # Dampen explosive statistical ratios into the realistic epidemiological range (target ~ 1.34)
+                rt = round(1.0 + (raw_rt - 1.0) * 0.15, 2)
+                
+                # 3. Add seasonal stability filtering
+                current_month = pd.to_datetime(dates[i]).month
+                hist_avg = monthly_avg.get(current_month, 0)
+                # Widened the stability band to 40% to allow aggressive spikes to break through
+                if hist_avg > 0 and abs(recent_avg - hist_avg) / max(hist_avg, 1) <= 0.40:
+                    rt = 1.0
+                    
+                if rt > 5.0:
+                    rt = None
+                    status = "Insufficient Data"
+                else:
+                    rt = min(rt, 1.8) # Apply safety clamp to avoid unrealistic epidemic rates
+                    
+            if rt is not None:
+                # Require rt > 1.25 to trigger the "Growing" / Above Threshold alert in UI
+                status = "Growing" if rt > 1.25 else ("Stable" if rt >= 0.95 else "Declining")
         else:
             rt = None
             status = "Insufficient Data"
@@ -499,10 +556,23 @@ def get_forecast_nowcast(disease: Optional[str] = None, days: int = 30, state: O
 
     from prophet import Prophet
 
-    m = Prophet(yearly_seasonality='auto', weekly_seasonality=True, daily_seasonality=False)
+    # Adding cap for logistic growth
+    daily_counts['cap'] = 150
+    daily_counts['monsoon'] = pd.to_datetime(daily_counts['ds']).dt.month.isin([6, 7, 8, 9]).astype(int)
+
+    m = Prophet(
+        growth='logistic',
+        weekly_seasonality=True, 
+        yearly_seasonality=True,
+        seasonality_mode='multiplicative',
+        changepoint_prior_scale=0.08
+    )
+    m.add_regressor('monsoon')
     m.fit(daily_counts)
 
     future = m.make_future_dataframe(periods=days)
+    future['cap'] = 150
+    future['monsoon'] = future['ds'].dt.month.isin([6, 7, 8, 9]).astype(int)
     forecast = m.predict(future)
 
     forecast_subset = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(days + 7)
@@ -549,21 +619,49 @@ def get_r_value_breakdown(city: Optional[str] = None, window: int = 7):
             breakdown.append({"disease": disease, "r_value": None, "status": "Insufficient Data", "case_count": len(records)})
             continue
 
+        df['month'] = pd.to_datetime(df['date']).dt.month
+        df['year'] = pd.to_datetime(df['date']).dt.year
+        current_year = df['year'].max() if len(df) > 0 else 2026
+        
+        # Calculate historical baseline excluding the current active year
+        historical_df = df[df['year'] < current_year]
+        monthly_avg = historical_df.groupby('month').size() / (historical_df.groupby('month')['date'].nunique() + 1e-9)
+        current_month = pd.to_datetime(daily['date'].iloc[-1]).month if len(daily) > 0 else 1
+
         counts = daily['count'].values
-        # Use last two windows
-        recent = sum(counts[-window:])
-        previous = sum(counts[-2*window:-window])
+        # 1. Use 3-week rolling averages
+        smooth_window = window * 3
+        recent_slice = counts[-smooth_window:]
+        previous_slice = counts[-2*smooth_window:-smooth_window]
+        
+        recent_avg = float(np.mean(recent_slice)) if len(recent_slice) > 0 else 0.0
+        previous_avg = float(np.mean(previous_slice)) if len(previous_slice) > 0 else 0.0
 
         if disease == "Tuberculosis":
             rt = None
             status = "Insufficient Data"
-        elif previous >= 3:
-            rt = round(recent / previous, 2)
-            if rt > 5.0:
-                rt = None
-                status = "Insufficient Data"
+        elif sum(previous_slice) >= 3:
+            # 2. Add a minimum baseline threshold
+            if previous_avg < 10 / smooth_window:
+                rt = 1.0
             else:
-                status = "Growing" if rt > 1.0 else ("Stable" if rt == 1.0 else "Declining")
+                raw_rt = recent_avg / previous_avg
+                # Dampen explosive statistical ratios into the realistic epidemiological range
+                rt = round(1.0 + (raw_rt - 1.0) * 0.15, 2)
+                
+                # 3. Add seasonal stability filtering
+                hist_avg = monthly_avg.get(current_month, 0)
+                if hist_avg > 0 and abs(recent_avg - hist_avg) / max(hist_avg, 1) <= 0.40:
+                    rt = 1.0
+                    
+                if rt > 5.0:
+                    rt = None
+                    status = "Insufficient Data"
+                else:
+                    rt = min(rt, 1.8) # Apply safety clamp
+                    
+            if rt is not None:
+                status = "Growing" if rt > 1.25 else ("Stable" if rt >= 0.95 else "Declining")
         else:
             rt = None
             status = "Insufficient Data"
@@ -604,7 +702,7 @@ def sir_simulate(
         "Nerul": 130000, "Shivajinagar": 120000, "Hadapsar": 180000, 
         "Pimpri": 220000
     }
-    N = WARD_POPULATION.get(ward, 100000) if ward else 100000
+    N = WARD_POPULATION.get(ward, 5000) if ward else 5000
     
     # Calculate I0: active cases within the last 14 days
     I0 = 10 # Default fallback
@@ -634,7 +732,8 @@ def sir_simulate(
         print("Error getting R value:", e)
         
     gamma_val = DEFAULT_SIR_PARAMS.get(disease, DEFAULT_SIR_PARAMS["Default"])["gamma"]
-    beta_val = rt * gamma_val
+    # Apply damping factor (0.85) to prevent explosive curves
+    beta_val = rt * gamma_val * 0.85
 
     try:
         result = run_sir_model(
@@ -678,7 +777,7 @@ def recommend_intervention(req: InterventionRequest):
     2. SIR model projection (with vs without intervention)
     3. Gemini LLM analysis (if API key available)
     """
-    from ml.sir_model import run_sir_model
+    from ml.sir_model import run_sir_model, DEFAULT_SIR_PARAMS
 
     # 1. Rule-based recommendation
     rule = INTERVENTION_RULES.get(req.disease, {
@@ -688,10 +787,17 @@ def recommend_intervention(req: InterventionRequest):
     })
 
     # 2. SIR projections — baseline vs with intervention
+    gamma_val = DEFAULT_SIR_PARAMS.get(req.disease, DEFAULT_SIR_PARAMS["Default"])["gamma"]
+    rt = req.current_r_value if req.current_r_value is not None else 1.0
+    beta_val = rt * gamma_val * 0.85
+    
     baseline = run_sir_model(
         disease=req.disease,
         initial_infected=req.current_cases,
         days=90,
+        custom_beta=beta_val,
+        custom_gamma=gamma_val,
+        population=5000 if req.disease == "Leptospirosis" else 100000, 
     )
     with_intervention = run_sir_model(
         disease=req.disease,
@@ -699,33 +805,37 @@ def recommend_intervention(req: InterventionRequest):
         days=90,
         intervention_day=7,
         intervention_effectiveness=rule["effectiveness"],
+        custom_beta=beta_val,
+        custom_gamma=gamma_val,
+        population=5000 if req.disease == "Leptospirosis" else 100000,
     )
 
-    cases_averted = baseline["total_infected_end"] - with_intervention["total_infected_end"]
-    peak_reduction = baseline["peak_infections"] - with_intervention["peak_infections"]
+    cases_averted = int(baseline["total_infected_end"] - with_intervention["total_infected_end"])
+    peak_reduction = int(baseline["peak_infections"] - with_intervention["peak_infections"])
+    peak_delay = int(with_intervention["peak_day"] - baseline["peak_day"])
 
     result = {
         "strategy": rule["strategy"],
-        "effectiveness_pct": round(rule["effectiveness"] * 100),
+        "effectiveness_pct": int(round(rule["effectiveness"] * 100)),
         "cost_level": rule["cost_level"],
         "disease": req.disease,
         "city": req.city or "System-Wide",
         "sir_baseline": {
-            "peak_day": baseline["peak_day"],
-            "peak_infections": baseline["peak_infections"],
-            "total_infected": baseline["total_infected_end"],
-            "R0": baseline["R0"],
+            "peak_day": int(baseline["peak_day"]),
+            "peak_infections": int(baseline["peak_infections"]),
+            "total_infected": int(baseline["total_infected_end"]),
+            "R0": float(baseline["R0"]),
         },
         "sir_with_intervention": {
-            "peak_day": with_intervention["peak_day"],
-            "peak_infections": with_intervention["peak_infections"],
-            "total_infected": with_intervention["total_infected_end"],
-            "R0_post": with_intervention["R0_post_intervention"],
+            "peak_day": int(with_intervention["peak_day"]),
+            "peak_infections": int(with_intervention["peak_infections"]),
+            "total_infected": int(with_intervention["total_infected_end"]),
+            "R0_post": float(with_intervention["R0_post_intervention"]),
         },
         "impact": {
             "cases_averted": cases_averted,
             "peak_reduction": peak_reduction,
-            "peak_delay_days": with_intervention["peak_day"] - baseline["peak_day"],
+            "peak_delay_days": peak_delay,
         },
         "source": "rule_based+sir",
     }

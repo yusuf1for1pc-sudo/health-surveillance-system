@@ -6,6 +6,7 @@ import {
   History, CreditCard, Menu, X, LogOut, ChevronLeft, Loader2, FlaskConical
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { checkHealth } from "@/lib/mlApi";
 
 interface NavItem {
   label: string;
@@ -63,6 +64,34 @@ interface DashboardLayoutProps {
   children: ReactNode;
   role: string;
 }
+
+const ApiHealthBanner = () => {
+  const [isApiDown, setIsApiDown] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      const ok = await checkHealth();
+      if (mounted) setIsApiDown(!ok);
+    };
+    check();
+    // Poll every 30 seconds
+    const interval = setInterval(check, 30000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (!isApiDown) return null;
+
+  return (
+    <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center justify-center gap-2 text-xs font-medium text-destructive w-full sticky top-14 z-30 backdrop-blur-sm">
+      <AlertTriangle className="h-4 w-4" />
+      <span>ML Analytics Engine is currently offline. Simulator and Surveillance features may be unavailable.</span>
+    </div>
+  );
+};
 
 const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const location = useLocation();
@@ -201,6 +230,8 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
             {roleLabels[role]} Portal
           </div>
         </header>
+
+        {(role === "gov" || role === "admin") && <ApiHealthBanner />}
 
         <main className="p-4 lg:p-8 max-w-7xl">
           {children}

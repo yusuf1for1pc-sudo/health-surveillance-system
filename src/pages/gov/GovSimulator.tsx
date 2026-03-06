@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import GeoFilterBar from "@/components/gov/GeoFilterBar";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { logSurveillanceAccess } from "@/lib/accessLogger";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 const DISEASES = ["Dengue", "Malaria", "Leptospirosis", "Typhoid", "Tuberculosis", "Gastroenteritis", "Chikungunya"];
 
@@ -38,7 +39,6 @@ const GovSimulator = () => {
     const [sirBaseline, setSirBaseline] = useState<SIRSimulationResponse | null>(null);
     const [sirIntervention, setSirIntervention] = useState<SIRSimulationResponse | null>(null);
     const [prophetBaseline, setProphetBaseline] = useState<ForecastResponse | null>(null);
-    const [prophetScenario, setProphetScenario] = useState<ForecastResponse | null>(null);
     const [isDeployed, setIsDeployed] = useState(false);
     const [deploying, setDeploying] = useState(false);
     const [step, setStep] = useState(1); // 1=config, 2=analysis, 3=deploy
@@ -59,6 +59,16 @@ const GovSimulator = () => {
         };
         fetchR();
     }, [disease, state, city, ward]);
+
+    // Clear ML results if disease or horizon changes to force re-analysis
+    useEffect(() => {
+        setRecommendation(null);
+        setProphetBaseline(null);
+        setSirBaseline(null);
+        setSirIntervention(null);
+        setIsDeployed(false);
+        setStep(1);
+    }, [disease, days]);
 
     // ── Step 2: Full ML Analysis ──
     const analyzeIntervention = async () => {
@@ -95,23 +105,8 @@ const GovSimulator = () => {
             );
             setSirIntervention(sirInt);
 
-            // 5. Simulated Prophet intervention scenario
-            const reductionPct = rec.effectiveness_pct;
-            const simPredictions = base.predictions.map((p, i) => {
-                if (i >= interventionDay) {
-                    const reduction = 1 - (reductionPct / 100) * Math.min(1, (i - interventionDay + 1) / 7);
-                    return Math.max(0, Math.round(p * reduction));
-                }
-                return p;
-            });
-
+            // Removed manual setProphetScenario here, computing on the fly
             logSurveillanceAccess("intervention_analyzed", { disease, city, ward, strategy: rec.strategy });
-            setProphetScenario({
-                dates: base.dates,
-                predictions: simPredictions,
-                lower: simPredictions.map(p => Math.max(0, Math.round(p * 0.85))),
-                upper: simPredictions.map(p => Math.round(p * 1.15)),
-            });
         } catch (err: any) {
             console.error(err);
             toast.error("Analysis failed", { description: err.message || "Check ML backend connection" });
@@ -150,6 +145,29 @@ const GovSimulator = () => {
         }
     };
 
+    // ── Dynamic Prophet Scenario ──
+    const prophetScenario = useMemo(() => {
+        if (!prophetBaseline || !recommendation) return null;
+        const reductionPct = recommendation.effectiveness_pct;
+        // The array has 7 days of history prepended.
+        // So day 1 of the simulation is index 7.
+        const simPredictions = prophetBaseline.predictions.map((p, i) => {
+            const historyPadding = 7;
+            const absoluteInterventionIndex = historyPadding + (interventionDay - 1);
+            if (i >= absoluteInterventionIndex) {
+                const reduction = 1 - (reductionPct / 100) * Math.min(1, (i - absoluteInterventionIndex + 1) / 7);
+                return Math.max(0, Math.round(p * reduction));
+            }
+            return p;
+        });
+        return {
+            dates: prophetBaseline.dates,
+            predictions: simPredictions,
+            lower: simPredictions.map(p => Math.max(0, Math.round(p * 0.85))),
+            upper: simPredictions.map(p => Math.round(p * 1.15)),
+        };
+    }, [prophetBaseline, recommendation, interventionDay]);
+
     // ── Chart data ──
     const prophetChartData = prophetBaseline
         ? prophetBaseline.dates.map((d, i) => ({
@@ -173,11 +191,13 @@ const GovSimulator = () => {
         : [];
 
     // ── Computed stats ──
-    const totalBaseline = prophetBaseline ? prophetBaseline.predictions.reduce((s, v) => s + v, 0) : 0;
-    const totalScenario = prophetScenario ? prophetScenario.predictions.reduce((s, v) => s + v, 0) : 0;
+    // Slice off the 7 days of history so we only sum the actual simulation horizon
+    const futureBaseline = prophetBaseline ? prophetBaseline.predictions.slice(7) : [];
+    const futureScenario = prophetScenario ? prophetScenario.predictions.slice(7) : [];
+
+    const totalBaseline = futureBaseline.reduce((s, v) => s + v, 0);
+    const totalScenario = futureScenario.reduce((s, v) => s + v, 0);
     const casesSaved = totalBaseline - totalScenario;
-    const costPerCase = 2500;
-    const bedDaysPerCase = 3;
 
     const getRStatusColor = (status: string) => {
         if (status === "Growing") return "text-red-600 bg-red-50 border-red-200";
@@ -210,15 +230,15 @@ const GovSimulator = () => {
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching...
                     </div>
-                ) : liveR ? (
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-sm font-bold ${getRStatusColor(liveR.current_status)}`}>
+                ) : liveR && typeof liveR.current_r === 'number' ? (
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-sm font-bold ${getRStatusColor(liveR.current_status || 'Stable')}`}>
                         {liveR.current_r.toFixed(2)}
-                        <span className="text-[10px] font-semibold uppercase opacity-70">{liveR.current_status}</span>
+                        <span className="text-[10px] font-semibold uppercase opacity-70">{liveR.current_status || 'Stable'}</span>
                     </div>
                 ) : (
                     <span className="text-xs text-slate-400">Unavailable</span>
                 )}
-                {liveR && liveR.current_r > 1.0 && (
+                {liveR && typeof liveR.current_r === 'number' && liveR.current_r > 1.0 && (
                     <span className="text-[10px] font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded">⚠ Above threshold — intervention recommended</span>
                 )}
             </div>
@@ -298,12 +318,14 @@ const GovSimulator = () => {
                                         {disease}
                                     </span>
                                 </h3>
-                                <p className="text-sm text-blue-800/80 mt-1 max-w-xl">
-                                    Predicted <span className="font-bold text-blue-900">{recommendation.effectiveness_pct}%</span> transmission reduction.
-                                    {recommendation.impact && (
-                                        <> Peak delayed by <span className="font-bold">{recommendation.impact.peak_delay_days} days</span>, averting <span className="font-bold text-emerald-700">{recommendation.impact.cases_averted}</span> cases.</>
+                                <div className="text-sm text-blue-800/80 mt-1 max-w-xl">
+                                    Targeting a <span className="font-bold text-blue-900">{recommendation.effectiveness_pct}%</span> transmission reduction.
+                                    {sirBaseline && sirIntervention && (
+                                        <>
+                                            {" "}Peak {sirIntervention.peak_day - sirBaseline.peak_day < 0 ? "accelerated" : "delayed"} by <span className="font-bold">{Math.abs(sirIntervention.peak_day - sirBaseline.peak_day)} days</span>, averting <span className="font-bold text-emerald-700">{casesSaved}</span> cases based on current horizon.
+                                        </>
                                     )}
-                                </p>
+                                </div>
                                 {recommendation.gemini_recommendation && (
                                     <p className="text-xs text-blue-700/70 mt-2 italic border-l-2 border-blue-300 pl-3">
                                         {recommendation.gemini_recommendation.slice(0, 300)}{recommendation.gemini_recommendation.length > 300 ? "..." : ""}
@@ -311,8 +333,8 @@ const GovSimulator = () => {
                                 )}
                                 <div className="flex gap-4 mt-3 text-xs text-blue-700/60 font-semibold">
                                     <span>Cost: {recommendation.cost_level}</span>
-                                    <span>R₀: {recommendation.sir_baseline?.R0?.toFixed(2) ?? "—"}</span>
-                                    <span>R₀ Post: {recommendation.sir_with_intervention?.R0_post?.toFixed(2) ?? "—"}</span>
+                                    <span>R₀: {sirBaseline?.R0?.toFixed(2) ?? "—"}</span>
+                                    <span>R₀ Post: {sirIntervention?.R0_post_intervention?.toFixed(2) ?? "—"}</span>
                                 </div>
                             </div>
 
@@ -349,17 +371,19 @@ const GovSimulator = () => {
                             <h3 className="text-sm font-semibold text-foreground mb-1">Prophet Case Forecast</h3>
                             <p className="text-[10px] text-muted-foreground mb-3">Daily predicted cases — baseline vs with intervention</p>
                             <div className="h-56">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={prophetChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                                        <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} />
-                                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, boxShadow: '0 4px 6px -1px rgb(0 0 0/0.1)' }} />
-                                        <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                                        <Line type="monotone" dataKey="No Intervention" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                                        <Line type="monotone" dataKey="With Intervention" stroke="#10b981" strokeWidth={2.5} activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981' }} dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <ErrorBoundary title="Failed to load Prophet forecast">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={prophetChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                                            <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                                            <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} />
+                                            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, boxShadow: '0 4px 6px -1px rgb(0 0 0/0.1)' }} />
+                                            <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                                            <Line type="monotone" dataKey="No Intervention" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                            <Line type="monotone" dataKey="With Intervention" stroke="#10b981" strokeWidth={2.5} activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981' }} dot={false} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </ErrorBoundary>
                             </div>
                         </div>
 
@@ -368,17 +392,19 @@ const GovSimulator = () => {
                             <h3 className="text-sm font-semibold text-foreground mb-1">SIR Compartmental Model</h3>
                             <p className="text-[10px] text-muted-foreground mb-3">Infected curve — baseline vs post-intervention</p>
                             <div className="h-56">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={sirChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-                                        <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} />
-                                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, boxShadow: '0 4px 6px -1px rgb(0 0 0/0.1)' }} />
-                                        <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                                        <Area type="monotone" dataKey="Baseline Infected" stroke="#ef4444" fill="#ef444420" strokeWidth={2} dot={false} />
-                                        <Area type="monotone" dataKey="With Intervention" stroke="#10b981" fill="#10b98120" strokeWidth={2} dot={false} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <ErrorBoundary title="Failed to load SIR simulation">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={sirChartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                                            <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                                            <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} />
+                                            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, boxShadow: '0 4px 6px -1px rgb(0 0 0/0.1)' }} />
+                                            <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                                            <Area type="monotone" dataKey="Baseline Infected" stroke="#ef4444" fill="#ef444420" strokeWidth={2} dot={false} />
+                                            <Area type="monotone" dataKey="With Intervention" stroke="#10b981" fill="#10b98120" strokeWidth={2} dot={false} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </ErrorBoundary>
                             </div>
                         </div>
                     </div>
@@ -386,30 +412,22 @@ const GovSimulator = () => {
                     {/* Annotation bar */}
                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                        <span>Intervention modeled on <strong>Day {interventionDay}</strong> with <strong>{recommendation.effectiveness_pct}%</strong> efficacy ramp over 7 days. SIR R₀ dropped from <strong>{sirBaseline?.R0?.toFixed(2) ?? "—"}</strong> → <strong>{sirIntervention?.R0_post_intervention?.toFixed(2) ?? "—"}</strong>.</span>
+                        <span>Scenario modeled on <strong>Day {interventionDay}</strong> assuming <strong>{recommendation.effectiveness_pct}%</strong> efficacy ramp over 7 days. SIR R₀ dropped from <strong>{sirBaseline?.R0?.toFixed(2) ?? "—"}</strong> → <strong>{sirIntervention?.R0_post_intervention?.toFixed(2) ?? "—"}</strong>.</span>
                     </div>
 
                     {/* Cost / Resource Estimates */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-red-50/50 border border-red-100 rounded-xl p-4 text-center">
-                            <p className="text-xs font-semibold text-red-700/70 uppercase tracking-wider mb-1">Total Baseline</p>
+                            <p className="text-xs font-semibold text-red-700/70 uppercase tracking-wider mb-1">TOTAL BASELINE</p>
                             <p className="text-2xl font-bold text-red-600">{totalBaseline}</p>
-                            <p className="text-[10px] text-red-600/60 font-medium">Cases Estimated</p>
                         </div>
                         <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 text-center">
-                            <p className="text-xs font-semibold text-emerald-700/70 uppercase tracking-wider mb-1">Post-Intervention</p>
+                            <p className="text-xs font-semibold text-emerald-700/70 uppercase tracking-wider mb-1">POST-INTERVENTION</p>
                             <p className="text-2xl font-bold text-emerald-600">{totalScenario}</p>
-                            <p className="text-[10px] text-emerald-600/60 font-medium">Cases Estimated</p>
                         </div>
                         <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 text-center">
-                            <p className="text-xs font-semibold text-blue-700/70 uppercase tracking-wider mb-1">Averted Cases</p>
+                            <p className="text-xs font-semibold text-blue-700/70 uppercase tracking-wider mb-1">AVERTED CASES</p>
                             <p className="text-2xl font-bold text-blue-600">{casesSaved}</p>
-                            <p className="text-[10px] text-blue-600/60 font-bold whitespace-nowrap">₹{(casesSaved * costPerCase).toLocaleString()} Saved</p>
-                        </div>
-                        <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-4 text-center">
-                            <p className="text-xs font-semibold text-purple-700/70 uppercase tracking-wider mb-1">Bed-Days Freed</p>
-                            <p className="text-2xl font-bold text-purple-600">{casesSaved * bedDaysPerCase}</p>
-                            <p className="text-[10px] text-purple-600/60 font-medium">@{bedDaysPerCase} days/case avg</p>
                         </div>
                     </div>
                 </div>
