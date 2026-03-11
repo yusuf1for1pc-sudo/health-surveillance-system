@@ -120,24 +120,29 @@ const Login = () => {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-              Back to Home
-            </Link>
-          </div>
-          <div className="inline-flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">T</span>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[url('/bg-abstract-top.png')] bg-cover bg-center bg-no-repeat bg-fixed p-4">
+      {/* Main Glassmorphism Card (1100x650) */}
+      <div className="w-full max-w-[1100px] h-full max-h-[750px] lg:h-[650px] bg-white/40 backdrop-blur-md rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col lg:flex-row overflow-hidden z-10 relative">
+        
+        {/* Left Pane: Login Form (Scrollable) */}
+        <div className="w-full lg:w-1/2 h-full overflow-y-auto p-6 sm:p-10 relative flex flex-col items-center justify-center bg-white/60">
+          <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <Link to="/" className="inline-flex items-center gap-2 text-sm text-[#3b82f6] font-medium hover:text-[#1e3a8a] transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+                Back to Home
+              </Link>
             </div>
-            <span className="font-semibold text-lg text-foreground">Tempest</span>
+            <div className="inline-flex items-center gap-2 mb-4 justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[#1e3a8a] flex items-center justify-center">
+                <span className="text-white font-bold text-sm">T</span>
+              </div>
+              <span className="font-semibold text-xl text-[#1e3a8a]">Tempest</span>
+            </div>
+            <h1 className="text-2xl font-bold text-[#1e3a8a]">Welcome back</h1>
+            <p className="text-[#3b82f6] font-medium mt-1">Sign in to your account</p>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground mt-1">Sign in to your account</p>
-        </div>
 
         <Tabs defaultValue="email" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -245,8 +250,8 @@ const Login = () => {
         {/* Demo Quick Login */}
         <div className="mt-6">
           <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
-            <div className="relative flex justify-center"><span className="bg-background px-3 text-xs text-muted-foreground">Quick Demo Access</span></div>
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/60" /></div>
+            <div className="relative flex justify-center"><span className="bg-white/80 backdrop-blur-sm rounded-full px-3 py-0.5 text-xs text-[#3b82f6] font-medium shadow-sm">Quick Demo Access</span></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {demoAccounts.map((acc) => (
@@ -265,29 +270,39 @@ const Login = () => {
         </div>
 
         <div className="mt-4 text-center">
-          <Link to="/forgot-password" className="text-sm text-primary hover:underline">Forgot password?</Link>
+          <Link to="/forgot-password" className="text-sm text-[#1e3a8a] font-bold hover:underline">Forgot password?</Link>
         </div>
-        <div className="mt-4 text-center text-sm text-muted-foreground">
+        <div className="mt-4 text-center text-sm text-[#3b82f6] font-medium">
           Don't have an account?{" "}
-          <Link to="/register/patient" className="text-primary hover:underline">Create Account</Link>
+          <Link to="/register/patient" className="text-[#1e3a8a] font-bold hover:underline">Create Account</Link>
           {" · "}
-          <Link to="/register/organization" className="text-primary hover:underline">Register Organization</Link>
+          <Link to="/register/organization" className="text-[#1e3a8a] font-bold hover:underline">Register Organization</Link>
         </div>
 
-        <div className="mt-8 pt-4 border-t text-center">
+        <div className="mt-8 pt-4 border-t border-white/60 text-center">
           <button
             type="button"
             onClick={() => {
               localStorage.clear();
               window.location.reload();
             }}
-            className="text-xs text-red-500 hover:text-red-700 underline"
+            className="text-xs text-red-500 hover:text-red-700 font-medium hover:underline transition-all"
           >
             Trouble logging in? Click here to Reset App
           </button>
         </div>
+        </div>
+      </div>
+
+      {/* Right Pane: Welcome Banner / Branding */}
+      <div className="hidden lg:flex w-1/2 bg-white/10 flex-col items-center justify-center relative p-12 text-center overflow-hidden border-l border-white/20">
+        <h2 className="text-4xl lg:text-5xl font-extrabold text-[#0f2a58] mb-6 tracking-tight drop-shadow-sm">WELCOME BACK</h2>
+        <p className="text-xl lg:text-2xl text-[#1e3a8a] font-medium max-w-md leading-relaxed drop-shadow-sm opacity-90">
+          You're just one step away from a next-generation health surveillance experience.
+        </p>
       </div>
     </div>
+  </div>
   );
 };
 

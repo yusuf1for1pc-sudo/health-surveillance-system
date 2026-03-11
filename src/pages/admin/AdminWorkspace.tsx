@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useData } from "@/contexts/DataContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
@@ -5,19 +6,29 @@ import StatCard from "@/components/dashboard/StatCard";
 import DataTable from "@/components/dashboard/DataTable";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Building2, Users, Shield } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const AdminWorkspace = () => {
   // Use global data context for instant loading
-  const { organizations, patients, staff } = useData();
+  const { organizations } = useData();
+  const [counts, setCounts] = useState({ staff: 0, patients: 0, records: 0 });
 
-  // Derive stats from cached data
-  const stats = {
-    orgCount: organizations.length,
-    pendingOrgCount: organizations.filter(o => o.status === 'pending').length,
-    staffCount: 24, // Hardcoded per screenshot requirement
-    patientCount: 456, // Hardcoded per screenshot requirement
-    totalRecords: 1230, // Hardcoded per screenshot requirement
-  };
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const [staffRes, patientRes, recordRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).in('role', ['doctor', 'lab_staff', 'org_admin']),
+        supabase.from('patients').select('id', { count: 'exact', head: true }),
+        supabase.from('medical_records').select('id', { count: 'exact', head: true }),
+      ]);
+
+      setCounts({
+        staff: staffRes.count ?? 0,
+        patients: patientRes.count ?? 0,
+        records: recordRes.count ?? 0,
+      });
+    };
+    fetchCounts();
+  }, []);
 
   const recentOrgs = organizations.slice(0, 5);
 
@@ -25,9 +36,9 @@ const AdminWorkspace = () => {
     <DashboardLayout role="admin">
       <PageHeader title="Admin Dashboard" description="Platform overview and management" />
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
-        <StatCard title="Medical Staff" value={stats.staffCount} subtitle="Across all orgs" icon={<Users className="w-5 h-5" />} />
-        <StatCard title="Patients" value={stats.patientCount} subtitle="12 new this week" icon={<Shield className="w-5 h-5" />} />
-        <StatCard title="Records" value={stats.totalRecords.toLocaleString()} subtitle="Total medical records" icon={<Shield className="w-5 h-5" />} />
+        <StatCard title="Medical Staff" value={counts.staff} subtitle="Across all orgs" icon={<Users className="w-5 h-5" />} />
+        <StatCard title="Patients" value={counts.patients} subtitle="Total registered" icon={<Shield className="w-5 h-5" />} />
+        <StatCard title="Records" value={counts.records.toLocaleString()} subtitle="Total medical records" icon={<Shield className="w-5 h-5" />} />
       </div>
       <h2 className="text-lg font-medium text-foreground mb-4">Recent Organization Signups</h2>
       <DataTable
