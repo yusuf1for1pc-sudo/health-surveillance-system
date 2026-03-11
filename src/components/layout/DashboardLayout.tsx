@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { ReactNode, useState, useRef, useEffect } from "react";
 import {
   LayoutDashboard, Users, Building2, Shield, User, FileText,
@@ -192,8 +193,8 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
             Sign Out
           </button>
 
-          {/* Sign-out confirmation popup */}
-          {showSignOutModal && (
+          {/* Sign-out confirmation portal */}
+          {showSignOutModal && createPortal(
             <>
               <div className="fixed inset-0 bg-black/20 z-[100]" onClick={() => setShowSignOutModal(false)} />
               <div className="fixed bottom-4 left-4 w-56 z-[101] bg-card rounded-xl border shadow-xl p-4">
@@ -221,7 +222,8 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
                   </button>
                 </div>
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
       </aside>

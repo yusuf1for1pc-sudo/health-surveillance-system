@@ -1,11 +1,13 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Building2, Users, FileText } from "lucide-react";
+import { ArrowLeft, Building2, Users, FileText, ExternalLink } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const AdminOrganizationDetail = () => {
   const { id } = useParams();
@@ -14,6 +16,23 @@ const AdminOrganizationDetail = () => {
   const { organizations, updateOrganizationStatus } = useData();
 
   const org = organizations.find(o => o.id === id);
+
+  // Fetch real staff and patient counts for this org
+  const [staffCount, setStaffCount] = useState(0);
+  const [patientCount, setPatientCount] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchCounts = async () => {
+      const [staffRes, patientRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('organization_id', id).neq('role', 'org_admin'),
+        supabase.from('patients').select('id', { count: 'exact', head: true }).eq('organization_id', id),
+      ]);
+      setStaffCount(staffRes.count ?? 0);
+      setPatientCount(patientRes.count ?? 0);
+    };
+    fetchCounts();
+  }, [id]);
 
   if (!org) {
     return (
@@ -70,7 +89,7 @@ const AdminOrganizationDetail = () => {
             <Users className="w-5 h-5 text-accent-foreground" />
           </div>
           <div>
-            <p className="text-2xl font-semibold text-foreground">{0 /* Real staff count not explicitly linked yet, defaulting to 0 safely */}</p>
+            <p className="text-2xl font-semibold text-foreground">{staffCount}</p>
             <p className="text-sm text-muted-foreground">Staff Members</p>
           </div>
         </div>
@@ -79,7 +98,7 @@ const AdminOrganizationDetail = () => {
             <Building2 className="w-5 h-5 text-accent-foreground" />
           </div>
           <div>
-            <p className="text-2xl font-semibold text-foreground">{0 /* Real patient count not explicitly linked yet */}</p>
+            <p className="text-2xl font-semibold text-foreground">{patientCount}</p>
             <p className="text-sm text-muted-foreground">Patients</p>
           </div>
         </div>
@@ -91,7 +110,7 @@ const AdminOrganizationDetail = () => {
             <p className="text-sm text-muted-foreground">Status</p>
             <StatusBadge status={org.status} />
           </div>
-          ,</div>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-6">
@@ -114,11 +133,48 @@ const AdminOrganizationDetail = () => {
               {org.certificate_status === "verified" ? "Certificate has been verified" : "Awaiting verification"}
             </span>
           </div>
-          <div className="border-2 border-dashed rounded-lg p-8 text-center">
-            <FileText className="w-8 h-8 mx-auto text-muted-foreground mb-2 opacity-40" />
-            <p className="text-sm text-muted-foreground">Certificate preview</p>
-            <p className="text-xs text-muted-foreground mt-1">{org.certificate_url ? "View Document" : "No document uploaded"}</p>
-          </div>
+          {org.certificate_url ? (
+            <div className="space-y-3">
+              {/* Document Preview */}
+              {/\.(jpg|jpeg|png|gif|webp)$/i.test(org.certificate_url) ? (
+                <div className="border rounded-lg overflow-hidden bg-muted/20">
+                  <img
+                    src={org.certificate_url}
+                    alt="Organization Certificate"
+                    className="w-full max-h-96 object-contain"
+                  />
+                </div>
+              ) : /\.pdf$/i.test(org.certificate_url) ? (
+                <div className="border rounded-lg overflow-hidden bg-muted/20">
+                  <iframe
+                    src={org.certificate_url}
+                    title="Organization Certificate"
+                    className="w-full h-96"
+                  />
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden bg-muted/20 p-8 text-center">
+                  <FileText className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Document uploaded</p>
+                </div>
+              )}
+              {/* View full document link */}
+              <a
+                href={org.certificate_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View Full Document
+              </a>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+              <FileText className="w-8 h-8 mx-auto text-muted-foreground mb-2 opacity-40" />
+              <p className="text-sm text-muted-foreground">No document uploaded</p>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>

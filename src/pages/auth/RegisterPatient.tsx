@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@/lib/types";
-import { Eye, EyeOff, Calendar as CalendarIcon, Phone as PhoneIcon, User as UserIcon } from "lucide-react";
+import { Eye, EyeOff, Calendar as CalendarIcon, Phone as PhoneIcon, User as UserIcon, Plus, X, HeartPulse } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -35,8 +35,20 @@ const RegisterPatient = () => {
   const [gender, setGender] = useState("");
   const [dob, setDob] = useState<Date>();
   const [bloodType, setBloodType] = useState("");
-  const [allergies, setAllergies] = useState("");
+  const [allergiesList, setAllergiesList] = useState<string[]>([]);
+  const [currentAllergy, setCurrentAllergy] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
+
+  const addAllergy = () => {
+    if (currentAllergy.trim() && !allergiesList.includes(currentAllergy.trim())) {
+      setAllergiesList([...allergiesList, currentAllergy.trim()]);
+    }
+    setCurrentAllergy("");
+  };
+
+  const removeAllergy = (allergy: string) => {
+    setAllergiesList(allergiesList.filter(a => a !== allergy));
+  };
 
   // Location fields
   const [address, setAddress] = useState("");
@@ -99,7 +111,7 @@ const RegisterPatient = () => {
           gender: gender || undefined,
           date_of_birth: dob ? format(dob, 'yyyy-MM-dd') : undefined,
           blood_type: bloodType || undefined,
-          allergies: allergies || undefined,
+          allergies: allergiesList.length > 0 ? allergiesList.join(", ") : undefined,
           emergency_contact: emergencyContact || undefined,
           address: address || undefined,
           city,
@@ -148,24 +160,28 @@ const RegisterPatient = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-lg">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">T</span>
-            </div>
-            <span className="font-semibold text-lg text-foreground">Tempest</span>
-          </Link>
-          <h1 className="text-2xl font-semibold text-foreground">Patient Registration</h1>
-          <p className="text-muted-foreground mt-1">Create your patient account</p>
-        </div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[url('/bg-abstract-top.png')] bg-cover bg-center bg-no-repeat bg-fixed p-4">
+      {/* Main Glassmorphism Card (1100x650) */}
+      <div className="w-full max-w-[1100px] h-full max-h-[750px] lg:h-[650px] bg-white/40 backdrop-blur-md rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col lg:flex-row overflow-hidden z-10 relative">
+        
+        {/* Left Pane: Registration Form (Scrollable) */}
+        <div className="w-full lg:w-1/2 h-full overflow-y-auto p-6 sm:p-10 relative flex flex-col bg-white/60">
+          <div className="text-center mb-8 shrink-0">
+            <Link to="/" className="inline-flex items-center gap-2 mb-4 justify-center">
+              <div className="w-8 h-8 rounded-lg bg-[#1e3a8a] flex items-center justify-center shadow-sm">
+                <span className="text-white font-bold text-sm">T</span>
+              </div>
+              <span className="font-bold text-xl text-[#0f2a58] tracking-tight">Tempest</span>
+            </Link>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Create Account</h1>
+            <p className="text-[#3b82f6] font-medium mt-1.5">Join the Tempest health network</p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 flex-grow">
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <Label>Full Name</Label>
-              <Input placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1.5" required />
+              <Label className="text-slate-700 font-medium">Full Name</Label>
+              <Input placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1.5 focus-visible:ring-blue-500 bg-white/80" required />
             </div>
 
             <div>
@@ -189,11 +205,11 @@ const RegisterPatient = () => {
             </div>
 
             <div>
-              <Label>Email</Label>
-              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" required />
+              <Label className="text-slate-700 font-medium">Email</Label>
+              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 focus-visible:ring-blue-500 bg-white/80" required />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:col-span-2">
               <div>
                 <Label className="mb-1.5 block">Gender</Label>
                 <Select value={gender} onValueChange={setGender} required>
@@ -240,7 +256,7 @@ const RegisterPatient = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:col-span-2">
               <div>
                 <Label className="mb-1.5 block">Blood Type <span className="text-muted-foreground font-normal text-xs">(Optional)</span></Label>
                 <Select value={bloodType} onValueChange={setBloodType}>
@@ -273,14 +289,40 @@ const RegisterPatient = () => {
               </div>
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <Label>Allergies (Optional)</Label>
-              <Input
-                placeholder="Peanuts, Penicillin, etc."
-                value={allergies}
-                onChange={(e) => setAllergies(e.target.value)}
-                className="mt-1.5"
-              />
+              <div className="flex gap-2 mt-1.5 mb-2">
+                <Input
+                  placeholder="Peanuts, Penicillin, etc."
+                  value={currentAllergy}
+                  onChange={(e) => setCurrentAllergy(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addAllergy();
+                    }
+                  }}
+                />
+                <Button type="button" variant="secondary" onClick={addAllergy} className="shrink-0 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
+                  <Plus className="w-4 h-4 mr-1" /> Add
+                </Button>
+              </div>
+              {allergiesList.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {allergiesList.map((allergy, index) => (
+                    <div key={index} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-medium border border-blue-200">
+                      {allergy}
+                      <button
+                        type="button"
+                        onClick={() => removeAllergy(allergy)}
+                        className="text-muted-foreground hover:text-foreground transition-colors ml-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="sm:col-span-2">
@@ -309,8 +351,8 @@ const RegisterPatient = () => {
             </div>
           </div>
 
-          <div className="border-t pt-4 mt-4">
-            <h3 className="text-sm font-medium mb-3">Location & Address</h3>
+          <div className="border-t border-slate-200 pt-6 mt-6 shrink-0">
+            <h3 className="text-sm font-semibold text-slate-800 mb-4 tracking-tight">LOCATION & ADDRESS</h3>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -348,21 +390,35 @@ const RegisterPatient = () => {
           </div>
 
           {error && (
-            <div className={`text-sm p-3 rounded-md ${error.includes("check your email") ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" : "bg-destructive/10 text-destructive"}`}>
+            <div className={`shrink-0 text-sm p-3 rounded-md mt-4 ${error.includes("check your email") ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
               {error}
             </div>
           )}
 
-          <Button type="submit" className="w-full mt-6" disabled={loading}>
-            {loading ? (status || "Processing...") : "Create Account"}
-          </Button>
-        </form>
+          <div className="shrink-0 mt-6 pb-2">
+            <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-[#0f2a58] text-white shadow-md shadow-blue-900/20 transition-all rounded-lg h-11 font-medium" disabled={loading}>
+              {loading ? (status || "Processing...") : "Create Account"}
+            </Button>
+          </div>
+          </form>
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
+          <div className="mt-6 text-center text-sm text-[#3b82f6] font-medium shrink-0 pb-4">
+            Already have an account? <Link to="/login" className="text-[#1e3a8a] font-bold hover:underline">Sign in</Link>
+          </div>
         </div>
-        <div className="mt-2 text-center text-sm text-muted-foreground">
-          Registering an organization? <Link to="/register/organization" className="text-primary hover:underline">Register Organization</Link>
+
+        {/* Right Pane: Welcome Banner / Branding */}
+        <div className="hidden lg:flex w-1/2 bg-white/10 flex-col items-center justify-center relative p-12 text-center overflow-hidden border-l border-white/20">
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="mb-8 p-3 bg-white/10 backdrop-blur-md rounded-2xl shadow-sm border border-white/20">
+              <HeartPulse className="w-12 h-12 text-[#1e3a8a] stroke-[1.5]" />
+            </div>
+            
+            <h2 className="text-4xl lg:text-5xl font-extrabold text-[#0f2a58] mb-4 tracking-tight drop-shadow-sm">Welcome to Tempest</h2>
+            <p className="text-xl text-[#1e3a8a] font-medium max-w-md leading-relaxed drop-shadow-sm opacity-90">
+              You're one step away from a state-of-the-art health surveillance experience.
+            </p>
+          </div>
         </div>
       </div>
     </div>
