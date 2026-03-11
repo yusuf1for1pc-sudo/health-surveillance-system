@@ -29,6 +29,11 @@ const StaffRecordDetail = () => {
   const [labReport, setLabReport] = useState<any>(null);
   const [loadingLabReport, setLoadingLabReport] = useState(false);
 
+  // Direct-fetch state (bypasses slow DataContext bulk load)
+  const [directRecord, setDirectRecord] = useState<any>(null);
+  const [directPatient, setDirectPatient] = useState<any>(null);
+  const [loadingRecord, setLoadingRecord] = useState(true);
+
   // Add Medicine Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -39,48 +44,58 @@ const StaffRecordDetail = () => {
     duration: "5 days"
   });
 
-  const fetchPrescriptions = async () => {
-    if (!id) return;
-    setLoadingPrescriptions(true);
-    try {
-      const { data, error } = await supabase
-        .from('prescriptions')
-        .select('*')
-        .eq('record_id', id);
-
-      if (!error && data) {
-        setPrescriptions(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch prescriptions:", err);
-    } finally {
-      setLoadingPrescriptions(false);
-    }
-  };
-
-  const fetchLabReport = async () => {
-    if (!id) return;
-    setLoadingLabReport(true);
-    try {
-      const { data, error } = await supabase
-        .from('lab_reports')
-        .select('*')
-        .eq('record_id', id)
-        .maybeSingle();
-      if (!error && data) setLabReport(data);
-    } catch (err) {
-      console.error("Failed to fetch lab report:", err);
-    } finally {
-      setLoadingLabReport(false);
-    }
-  };
-
+  // Fetch record + patient + prescriptions + lab report all in parallel
   useEffect(() => {
-    fetchPrescriptions();
-    fetchLabReport();
+    if (!id) return;
+    setLoadingRecord(true);
+
+    const fetchAll = async () => {
+      // Fire all queries in parallel
+      const [recRes, prescRes, labRes] = await Promise.all([
+        supabase.from('medical_records').select('*').eq('id', id).maybeSingle(),
+        supabase.from('prescriptions').select('*').eq('record_id', id),
+        supabase.from('lab_reports').select('*').eq('record_id', id).maybeSingle(),
+      ]);
+
+      if (recRes.data) {
+        setDirectRecord(recRes.data);
+        // Fetch patient in a follow-up (needs patient_id from record)
+        const { data: patData } = await supabase
+          .from('patients')
+          .select('id, patient_id, full_name, email, phone, gender, date_of_birth, blood_type')
+          .eq('id', recRes.data.patient_id)
+          .maybeSingle();
+        if (patData) setDirectPatient(patData);
+      }
+
+      if (prescRes.data) setPrescriptions(prescRes.data);
+      if (labRes.data) setLabReport(labRes.data);
+
+      setLoadingRecord(false);
+      setLoadingPrescriptions(false);
+      setLoadingLabReport(false);
+    };
+
+    fetchAll().catch((err) => {
+      console.error("Failed to fetch record details:", err);
+      setLoadingRecord(false);
+    });
   }, [id]);
 
-  const record = getRecord(id || "");
+  // Use cache first, fall back to direct fetch
+  const cachedRecord = getRecord(id || "");
+  const record = cachedRecord || directRecord;
+  const patient = patients.find(p => p.id === record?.patient_id) || directPatient;
+
+  if (loadingRecord && !record) {
+    return (
+      <DashboardLayout role="staff">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!record) {
     return (
@@ -91,8 +106,6 @@ const StaffRecordDetail = () => {
       </DashboardLayout>
     );
   }
-
-  const patient = patients.find(p => p.id === record.patient_id);
 
   const formatFrequency = (freq: any) => {
     if (!freq) return "—";
@@ -134,7 +147,9 @@ const StaffRecordDetail = () => {
         frequency: { morning: true, afternoon: false, evening: false, night: true },
         duration: "5 days"
       });
-      fetchPrescriptions(); // Refresh list
+      // Refresh prescriptions list
+      const { data: refreshed } = await supabase.from('prescriptions').select('*').eq('record_id', id);
+      if (refreshed) setPrescriptions(refreshed);
     } catch (err: any) {
       toast.error("Failed to add medicine: " + err.message);
     } finally {
