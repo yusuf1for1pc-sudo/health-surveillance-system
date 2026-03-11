@@ -16,23 +16,42 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import LabReportBuilder from "@/components/lab/LabReportBuilder";
 import type { LabTestPanelData } from "@/data/labTestPanels";
+import AllergyWarningModal from "@/components/medical/AllergyWarningModal";
 
 const recordTypes = ["Prescription", "Lab Report", "Clinical Note"];
 
 // ─── Allergy → Drug interaction map (prescription safety check) ───
-const ALLERGY_DRUG_MAP: Record<string, { drugs: string[]; alternative: string }> = {
-  penicillin: { drugs: ["penicillin", "amoxicillin", "ampicillin", "augmentin", "piperacillin"], alternative: "Azithromycin" },
-  aspirin: { drugs: ["aspirin", "acetylsalicylic acid", "dispirin"], alternative: "Paracetamol" },
-  sulfa: { drugs: ["sulfamethoxazole", "co-trimoxazole", "bactrim", "septran"], alternative: "Amoxicillin" },
-  nsaid: { drugs: ["ibuprofen", "naproxen", "diclofenac", "piroxicam", "indomethacin"], alternative: "Paracetamol" },
-  cephalosporin: { drugs: ["cephalexin", "cefixime", "ceftriaxone", "cefuroxime"], alternative: "Azithromycin" },
-  metformin: { drugs: ["metformin", "glucophage"], alternative: "Glipizide" },
+const ALLERGY_DRUG_MAP: Record<string, { drugs: string[]; alternatives: string[] }> = {
+  penicillin: { 
+    drugs: ["penicillin", "amoxicillin", "ampicillin", "augmentin", "piperacillin"], 
+    alternatives: ["Azithromycin (Macrolide)", "Erythromycin (Macrolide)", "Doxycycline"] 
+  },
+  aspirin: { 
+    drugs: ["aspirin", "acetylsalicylic acid", "dispirin"], 
+    alternatives: ["Paracetamol (Acetaminophen)", "Celecoxib (Cox-2 Inhibitor)"] 
+  },
+  sulfa: { 
+    drugs: ["sulfamethoxazole", "co-trimoxazole", "bactrim", "septran"], 
+    alternatives: ["Amoxicillin (if no penicillin allergy)", "Trimethoprim", "Nitrofurantoin"] 
+  },
+  nsaid: { 
+    drugs: ["ibuprofen", "naproxen", "diclofenac", "piroxicam", "indomethacin"], 
+    alternatives: ["Paracetamol", "Tramadol", "Topical Analgesics"] 
+  },
+  cephalosporin: { 
+    drugs: ["cephalexin", "cefixime", "ceftriaxone", "cefuroxime"], 
+    alternatives: ["Azithromycin", "Clarithromycin", "Fluoroquinolones"] 
+  },
+  metformin: { 
+    drugs: ["metformin", "glucophage"], 
+    alternatives: ["Glipizide", "Sitagliptin", "Pioglitazone"] 
+  },
 };
 
 interface AllergyAlert {
   medicineName: string;
   allergen: string;
-  alternative: string;
+  alternatives: string[];
 }
 
 const checkAllergyConflict = (medicineName: string, patientAllergies: string | undefined): AllergyAlert | null => {
@@ -43,18 +62,18 @@ const checkAllergyConflict = (medicineName: string, patientAllergies: string | u
   for (const allergy of allergies) {
     if (!allergy) continue;
     // Check each allergen category
-    for (const [allergen, { drugs, alternative }] of Object.entries(ALLERGY_DRUG_MAP)) {
+    for (const [allergen, { drugs, alternatives }] of Object.entries(ALLERGY_DRUG_MAP)) {
       // Does the patient's allergy match this category?
       if (allergen.includes(allergy) || allergy.includes(allergen)) {
         // Does the prescribed drug belong to this category?
         if (drugs.some(d => medLower.includes(d) || d.includes(medLower))) {
-          return { medicineName, allergen: allergy, alternative };
+          return { medicineName, allergen: allergy, alternatives };
         }
       }
     }
-    // Direct name match (e.g. patient allergic to "Paracetamol" and doctor prescribes "Paracetamol")
+    // Direct name match
     if (medLower.includes(allergy) || allergy.includes(medLower)) {
-      return { medicineName, allergen: allergy, alternative: "Consult pharmacist for safe alternative" };
+      return { medicineName, allergen: allergy, alternatives: ["Consult pharmacist for safe alternatives"] };
     }
   }
   return null;
@@ -141,6 +160,8 @@ const StaffRecordCreate = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<DiagnosisSuggestion | null>(null);
   const [allergyAlerts, setAllergyAlerts] = useState<AllergyAlert[]>([]);
+  const [pendingMedicineAlert, setPendingMedicineAlert] = useState<AllergyAlert | null>(null);
+  const [showAllergyModal, setShowAllergyModal] = useState(false);
 
   const filteredIcd = useMemo(() => searchIcdCodes(icdSearch), [icdSearch]);
 
@@ -198,15 +219,16 @@ const StaffRecordCreate = () => {
     // ── Allergy Safety Check ──
     const alert = checkAllergyConflict(newMed.name, selectedPatient?.allergies);
     if (alert) {
-      setAllergyAlerts(prev => {
-        // Avoid duplicate alerts for the same medicine
-        if (prev.some(a => a.medicineName.toLowerCase() === alert.medicineName.toLowerCase())) return prev;
-        return [...prev, alert];
-      });
-      toast.warning(`⚠️ Allergy Alert: Patient may be allergic to ${newMed.name}. Consider ${alert.alternative} instead.`, { duration: 6000 });
+      setPendingMedicineAlert(alert);
+      setShowAllergyModal(true);
+      return; // Stop and show modal
     }
 
-    setMedicines([...medicines, { ...newMed, id: crypto.randomUUID() }]);
+    proceedToAddMedicine(newMed);
+  };
+
+  const proceedToAddMedicine = (med: PrescriptionItem) => {
+    setMedicines([...medicines, { ...med, id: crypto.randomUUID() }]);
     setNewMed({
       id: "",
       name: "",
@@ -214,6 +236,16 @@ const StaffRecordCreate = () => {
       frequency: { morning: true, afternoon: false, evening: false, night: true },
       duration: "5 days"
     });
+    setPendingMedicineAlert(null);
+    setShowAllergyModal(false);
+  };
+
+  const overrideAndAddMedicine = () => {
+    if (pendingMedicineAlert) {
+      // Keep track of active alerts in the list if needed, but the primary requirement is the modal
+      setAllergyAlerts(prev => [...prev, pendingMedicineAlert]);
+      proceedToAddMedicine(newMed);
+    }
   };
 
   const removeMedicine = (id: string) => {
@@ -463,7 +495,7 @@ const StaffRecordCreate = () => {
                           Patient allergic to <span className="font-bold capitalize">{alert.allergen}</span> — <span className="font-medium">{alert.medicineName}</span> may cause a reaction.
                         </p>
                         <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                          Recommended alternative: <span className="font-semibold">{alert.alternative}</span>
+                          Recommended alternative: <span className="font-semibold">{alert.alternatives[0]}</span>
                         </p>
                       </div>
                       <button type="button" onClick={() => setAllergyAlerts(prev => prev.filter((_, idx) => idx !== i))} className="text-amber-500 hover:text-amber-700">
@@ -758,6 +790,13 @@ const StaffRecordCreate = () => {
           </div>
         </form>
       </div>
+
+      <AllergyWarningModal 
+        isOpen={showAllergyModal} 
+        onClose={() => setShowAllergyModal(false)} 
+        onOverride={overrideAndAddMedicine}
+        allergyData={pendingMedicineAlert}
+      />
     </DashboardLayout>
   );
 };

@@ -29,13 +29,13 @@ const PatientWorkspace = () => {
             recentItems.map((item) => (
               <div key={item.id} className="relative pl-10 group bg-transparent">
                 <div className="absolute left-2.5 top-2 w-3 h-3 rounded-full bg-primary border-2 border-card" />
-                <div className="bg-card rounded-xl p-4 card-shadow border border-transparent">
+                <div className="bg-card rounded-xl p-4 card-shadow border border-transparent transition-all duration-300 group-hover:bg-green-50 group-hover:border-green-200 group-hover:shadow-xl group-hover:scale-[1.02] active:scale-[0.98]">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-primary">{item.record_type}</span>
-                    <span className="text-xs text-muted-foreground">{item.created_at.split("T")[0]}</span>
+                    <span className="text-xs font-semibold text-primary uppercase tracking-wider">{item.record_type}</span>
+                    <span className="text-xs text-muted-foreground font-medium">{item.created_at.split("T")[0]}</span>
                   </div>
-                  <h3 className="text-sm font-medium text-foreground">{item.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">By {item.creator_name}</p>
+                  <h3 className="text-sm font-semibold text-foreground group-hover:text-green-900 transition-colors">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed italic">By {item.creator_name}</p>
                 </div>
               </div>
             ))
