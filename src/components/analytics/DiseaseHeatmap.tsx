@@ -172,8 +172,8 @@ export default function DiseaseHeatmap({ records, patients, selectedState, selec
         } else if (!showClusters && heatmapPoints.length > 0) {
             // @ts-ignore
             heatLayerRef.current = L.heatLayer(heatmapPoints, {
-                radius: selectedWard ? 15 : 25, // Tighten radius for wards
-                blur: 15,
+                radius: selectedWard ? 15 : 20, // Tighten radius for wards to reduce unrealistic density blobs
+                blur: 10, // Reduced blur to prevent sparse points looking like major hotspots
                 maxZoom: 14,
                 gradient: {
                     0.4: "blue",
@@ -183,8 +183,13 @@ export default function DiseaseHeatmap({ records, patients, selectedState, selec
                 }
             }).addTo(map);
         }
+    }, [heatmapPoints, selectedState, selectedCity, selectedWard, showClusters, clusters]);
 
-        // Handle Auto-Zoom based on bounds
+    // Handle Auto-Zoom based on bounds ONLY when location filters change, NOT when timeline scrubs
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+
         setIsZooming(true);
         let targetBounds: L.LatLngBoundsExpression | null = null;
 
@@ -222,7 +227,7 @@ export default function DiseaseHeatmap({ records, patients, selectedState, selec
 
         return () => clearTimeout(zoomTimeout);
 
-    }, [heatmapPoints, selectedState, selectedCity, selectedWard, showClusters, clusters]);
+    }, [selectedState, selectedCity, selectedWard, showClusters]);
 
     // Cleanup
     useEffect(() => {

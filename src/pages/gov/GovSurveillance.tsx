@@ -11,7 +11,7 @@ import {
 import { useData } from "@/contexts/DataContext";
 import { subDays, isAfter, parseISO, format, startOfWeek, startOfMonth } from "date-fns";
 import DiseaseHeatmap from "@/components/analytics/DiseaseHeatmap";
-import { Map as MapIcon, LayoutGrid, TrendingUp, TrendingDown } from "lucide-react";
+import { Map as MapIcon, LayoutGrid, TrendingUp, TrendingDown, Play, Pause } from "lucide-react";
 import { getForecast, getClusters } from "@/lib/mlApi";
 import type { ForecastResponse } from "@/lib/mlApi";
 import GeoFilterBar from "@/components/gov/GeoFilterBar";
@@ -85,6 +85,34 @@ const GovSurveillance = () => {
   const [city, setCity] = useState("");
   const [ward, setWard] = useState("");
 
+  // Timeline & Disease Filtering
+  const [selectedDisease, setSelectedDisease] = useState("All");
+  const MIN_DATE = new Date("2025-03-01T00:00:00Z").getTime();
+  const MAX_DATE = new Date("2026-03-10T00:00:00Z").getTime();
+  const [sliderDate, setSliderDate] = useState<number>(MAX_DATE);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    // Fast-reset if user starts play when already at the end
+    if (sliderDate >= MAX_DATE) {
+      setSliderDate(MIN_DATE);
+    }
+
+    const interval = setInterval(() => {
+      setSliderDate(prev => {
+        const next = prev + 7 * 24 * 60 * 60 * 1000; // +7 days
+        if (next >= MAX_DATE) {
+          setIsPlaying(false);
+          return MAX_DATE;
+        }
+        return next;
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
   // Surveillance access logging
   useEffect(() => { logSurveillanceAccess("heatmap_view", { state, city, ward }); }, [state, city, ward]);
   useEffect(() => { if (showClusters) logSurveillanceAccess("cluster_view"); }, [showClusters]);
@@ -125,6 +153,78 @@ const GovSurveillance = () => {
       .catch(() => { });
   }, []);
 
+  // Pre-aggregate records by date to prevent O(N) full array scans on every slider tick
+  const recordsByDate = useMemo(() => {
+    const dateMap: Record<number, typeof filteredRecords> = {};
+
+    filteredRecords.forEach(r => {
+      if (!r.created_at) return;
+      // Get the start of the day in milliseconds for stable bucketing
+      const rDate = new Date(r.created_at).setHours(0, 0, 0, 0);
+
+      if (!dateMap[rDate]) {
+        dateMap[rDate] = [];
+      }
+      dateMap[rDate].push(r);
+    });
+
+    return dateMap;
+  }, [filteredRecords]);
+
+  // Filter valid records for the MAP based on pre-aggregated timeline and disease
+  const mapRecords = useMemo(() => {
+    const visibleRecords: typeof filteredRecords = [];
+
+    // O(K) lookup where K is number of unique days <= sliderDate
+    // This scales significantly better than scanning 10,000s of elements on every tick
+    Object.entries(recordsByDate).forEach(([dateMsStr, dailyRecords]) => {
+      const dateMs = Number(dateMsStr);
+      if (dateMs <= sliderDate) {
+        if (selectedDisease === "All") {
+          visibleRecords.push(...dailyRecords.filter(r => {
+            // Drop recovered cases that are older than 14 days to prevent heatmap infinite densification
+            if ((r as any).status === 'RECOVERED') {
+              const activeWindowEnds = dateMs + (30 * 24 * 60 * 60 * 1000);
+              if (sliderDate > activeWindowEnds) return false;
+            }
+            return true;
+          }));
+        } else {
+          visibleRecords.push(
+            ...dailyRecords.filter(r => {
+              const d = normalizeDiseaseName(r.diagnosis || r.icd_label || "");
+              if (d !== selectedDisease) return false;
+
+              if ((r as any).status === 'RECOVERED') {
+                const activeWindowEnds = dateMs + (30 * 24 * 60 * 60 * 1000);
+                if (sliderDate > activeWindowEnds) return false;
+              }
+              return true;
+            })
+          );
+        }
+      }
+    });
+
+    return visibleRecords;
+  }, [recordsByDate, sliderDate, selectedDisease]);
+
+  // Dynamically filter active clusters based on mapRecords
+  const activeClusters = useMemo(() => {
+    if (!clusters || clusters.length === 0) return [];
+
+    const mapPatientIds = new Set(mapRecords.map(r => r.patient_id));
+
+    return clusters.map(c => {
+      const validPoints = c.points.filter((p: any) => mapPatientIds.has(p.patient_id));
+      return {
+        ...c,
+        size: validPoints.length,
+        points: validPoints
+      };
+    }).filter(c => c.size >= 1); // Only show clusters with at least 1 remaining case
+  }, [clusters, mapRecords]);
+
   // Compute live stat cards from real records
   const topDiseases = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -156,11 +256,15 @@ const GovSurveillance = () => {
 
   // Heatmap table logic
   const { heatmapCols, heatmapData, cityTotals, diseaseTotals, grandTotal } = useMemo(() => {
-    // Determine columns: if city is selected, show wards. Otherwise show cities.
     const cols = new Set<string>();
     patients.forEach(p => {
-      if (city && p.city?.toLowerCase() === city.toLowerCase() && p.ward_name) cols.add(p.ward_name);
-      else if (!city && p.city) cols.add(p.city);
+      let locName = "";
+      if (city && p.city?.toLowerCase() === city.toLowerCase() && p.ward_name) locName = p.ward_name;
+      else if (!city && p.city) locName = p.city;
+
+      if (locName && locName !== "Dombivli") {
+        cols.add(locName);
+      }
     });
     const colArray = Array.from(cols).sort();
 
@@ -443,23 +547,69 @@ const GovSurveillance = () => {
             </div>
 
             {heatmapView === "map" ? (
-              /* ── Leaflet Map ── */
-              <div className="h-[480px] relative w-full p-4">
-                <ErrorBoundary title="Failed to load geographic heatmap">
-                  {loading ? (
-                    <Skeleton className="h-full w-full rounded-xl bg-slate-100" />
-                  ) : (
-                    <DiseaseHeatmap
-                      records={filteredRecords}
-                      patients={patients}
-                      selectedState={state}
-                      selectedCity={city}
-                      selectedWard={ward}
-                      clusters={clusters}
-                      showClusters={showClusters}
-                    />
-                  )}
-                </ErrorBoundary>
+              <div className="flex flex-col">
+                {/* ── Timeline & Filter Control Panel ── */}
+                <div className="px-5 pb-2 pt-1 border-b border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-3 w-full md:w-auto">
+                    <label className="text-xs font-semibold text-slate-600 shrink-0">Filter Disease:</label>
+                    <select
+                      value={selectedDisease}
+                      onChange={(e) => setSelectedDisease(e.target.value)}
+                      className="text-sm border-gray-200 rounded-md py-1.5 focus:ring-blue-500 focus:border-blue-500 w-full md:w-[150px] bg-white shadow-sm"
+                    >
+                      <option value="All">All Diseases</option>
+                      {ALLOWED_DISEASES.map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex-1 flex items-center gap-4 w-full px-2">
+                    <button
+                      onClick={() => setIsPlaying(!isPlaying)}
+                      className="p-2 transition-all rounded-full bg-white border border-gray-200 shadow-sm hover:bg-slate-50 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                    >
+                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </button>
+                    <div className="flex-1 flex flex-col pt-1">
+                      <div className="flex justify-between text-[10px] font-medium text-slate-500 mb-1 px-1">
+                        <span>Mar 2025</span>
+                        <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                          {format(new Date(sliderDate), "MMM dd, yyyy")}
+                        </span>
+                        <span>Mar 2026</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={MIN_DATE}
+                        max={MAX_DATE}
+                        step={24 * 60 * 60 * 1000} // 1 day
+                        value={sliderDate}
+                        onChange={(e) => setSliderDate(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Leaflet Map ── */}
+                <div className="h-[480px] relative w-full p-4">
+                  <ErrorBoundary title="Failed to load geographic heatmap">
+                    {loading ? (
+                      <Skeleton className="h-full w-full rounded-xl bg-slate-100" />
+                    ) : (
+                      <DiseaseHeatmap
+                        records={mapRecords}
+                        patients={patients}
+                        selectedState={state}
+                        selectedCity={city}
+                        selectedWard={ward}
+                        clusters={activeClusters}
+                        showClusters={showClusters}
+                      />
+                    )}
+                  </ErrorBoundary>
+                </div>
               </div>
             ) : (
               /* ── Disease × City heatmap table ── */

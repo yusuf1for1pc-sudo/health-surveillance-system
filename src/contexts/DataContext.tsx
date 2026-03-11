@@ -254,17 +254,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setOrganizations(prev => prev.map(org => org.id === id ? { ...org, status } : org));
 
         if (isSupabaseConfigured() && user && !isDemoUser(user.id)) {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('organizations')
-                .update({ status })
-                .eq('id', id);
+                .update({ status, updated_at: new Date().toISOString() })
+                .eq('id', id)
+                .select();
 
             if (error) {
                 console.error("Failed to update org status:", error);
-                // Revert on error (fetching fresh data would be safer but let's just warn for now)
-                // In a production app, we'd revert the optimistic update here.
+                // Revert optimistic update by re-fetching fresh data
                 fetchData();
+                throw new Error(error.message || 'Failed to update organization status');
             }
+
+            // Supabase PostgREST silently returns empty data when RLS blocks the update
+            if (!data || data.length === 0) {
+                console.error("Org status update returned no rows — likely blocked by RLS policy");
+                fetchData();
+                throw new Error('Update was blocked. You may not have permission to change this organization.');
+            }
+
+            console.log("Org status updated successfully:", data[0]?.name, "→", status);
         }
     };
 
