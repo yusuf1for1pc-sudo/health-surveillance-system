@@ -127,9 +127,9 @@ const GovWorkspace = () => {
       {/* ── KPI Row ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <StatCard
-          title="Active Cases"
-          value={activeCases}
-          subtitle="ACTIVE + CRITICAL"
+          title="Total Patients"
+          value={patients.length}
+          subtitle=""
           icon={<Activity className="w-5 h-5" />}
         />
         <StatCard
