@@ -2,12 +2,14 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useData } from "@/contexts/DataContext";
 import { Button } from "@/components/ui/button";
 import { SmartphoneNfc } from "lucide-react";
 import { toast } from "sonner";
 
 const PatientHealthCard = () => {
   const { user } = useAuth();
+  const { patients } = useData();
 
   if (!user) {
     return (
@@ -18,10 +20,14 @@ const PatientHealthCard = () => {
     );
   }
 
-  // Generate a deterministic patient ID from the user's id
-  const patientId = user.id.startsWith("demo-")
+  // Find the patient's actual database record
+  // For patient role, DataContext fetches their record into the `patients` array
+  const currentPatientRecord = patients.length > 0 ? patients[0] : null;
+
+  // Use the REAL database patient_id if available, otherwise fallback to deterministic generation
+  const patientId = currentPatientRecord?.patient_id || (user.id.startsWith("demo-")
     ? `TMP-2026-${user.id.slice(-4).replace(/\D/g, "0").padStart(4, "0")}`
-    : `TMP-${user.id.slice(0, 8).toUpperCase()}`;
+    : `TMP-${user.id.slice(0, 8).toUpperCase()}`);
 
   return (
     <DashboardLayout role="patient">

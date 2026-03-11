@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,8 @@ interface PrescriptionItem {
 
 const StaffRecordCreate = () => {
   const navigate = useNavigate();
-  const { patients, addRecord, organizations } = useData();
+  const [searchParams] = useSearchParams();
+  const { patients, addRecord, getPatient, organizations } = useData();
   const { user } = useAuth();
   const [type, setType] = useState("Prescription");
   const [icdSearch, setIcdSearch] = useState("");
@@ -62,8 +63,22 @@ const StaffRecordCreate = () => {
   // Patient search
   const [patientSearch, setPatientSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<typeof patients[0] | null>(null);
+  const isPatientLocked = !!searchParams.get("patientId");
   const [submitting, setSubmitting] = useState(false);
   const [patientOpen, setPatientOpen] = useState(false);
+
+  // Pre-select patient from URL param (e.g. navigated from patient detail page)
+  useEffect(() => {
+    const pid = searchParams.get("patientId");
+    if (pid) {
+      const p = getPatient(pid);
+      if (p) {
+        setSelectedPatient(p);
+      }
+    }
+  // Only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // AI Diagnosis
   const [aiLoading, setAiLoading] = useState(false);
@@ -266,39 +281,57 @@ const StaffRecordCreate = () => {
           {/* Patient Search */}
           <div className="relative">
             <Label>Patient</Label>
-            <div className="relative mt-1.5">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search patient by name or ID..."
-                className="pl-9 h-11 sm:h-10"
-                value={selectedPatient ? `${selectedPatient.full_name} (${selectedPatient.patient_id})` : patientSearch}
-                onChange={(e) => {
-                  setPatientSearch(e.target.value);
-                  setSelectedPatient(null);
-                  setPatientOpen(true);
-                }}
-                onFocus={() => setPatientOpen(true)}
-                required
-              />
-            </div>
-            {patientOpen && !selectedPatient && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                {filteredPatients.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-muted-foreground">No matching patients</div>
-                ) : (
-                  filteredPatients.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="w-full text-left px-4 py-3 sm:py-2.5 hover:bg-muted/50 transition-colors border-b last:border-0"
-                      onClick={() => { setSelectedPatient(p); setPatientSearch(""); setPatientOpen(false); }}
-                    >
-                      <span className="text-sm font-medium text-foreground">{p.full_name}</span>
-                      <span className="text-sm text-muted-foreground ml-2">— {p.patient_id}</span>
-                    </button>
-                  ))
-                )}
+            {isPatientLocked && selectedPatient ? (
+              /* Read-only chip shown when patient was pre-selected from a scan or detail page */
+              <div className="mt-1.5 flex items-center gap-3 h-11 sm:h-10 px-3 border rounded-md bg-muted/40">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-primary">
+                    {selectedPatient.full_name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{selectedPatient.full_name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedPatient.patient_id}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">Pre-selected</span>
               </div>
+            ) : (
+              <>
+                <div className="relative mt-1.5">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    placeholder="Search patient by name or ID..."
+                    className="pl-9 h-11 sm:h-10"
+                    value={selectedPatient ? `${selectedPatient.full_name} (${selectedPatient.patient_id})` : patientSearch}
+                    onChange={(e) => {
+                      setPatientSearch(e.target.value);
+                      setSelectedPatient(null);
+                      setPatientOpen(true);
+                    }}
+                    onFocus={() => setPatientOpen(true)}
+                    required
+                  />
+                </div>
+                {patientOpen && !selectedPatient && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                    {filteredPatients.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-muted-foreground">No matching patients</div>
+                    ) : (
+                      filteredPatients.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="w-full text-left px-4 py-3 sm:py-2.5 hover:bg-muted/50 transition-colors border-b last:border-0"
+                          onClick={() => { setSelectedPatient(p); setPatientSearch(""); setPatientOpen(false); }}
+                        >
+                          <span className="text-sm font-medium text-foreground">{p.full_name}</span>
+                          <span className="text-sm text-muted-foreground ml-2">— {p.patient_id}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

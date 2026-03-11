@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -105,9 +105,9 @@ const StaffPatientDetail = () => {
               <Activity className="w-4 h-4 mr-2" />
               Update Status
             </Button>
-            <Link to="/staff/records/create">
-              <Button size="sm"><Plus className="w-4 h-4 mr-2" />New Record</Button>
-            </Link>
+            <Button size="sm" onClick={() => navigate(`/staff/records/create?patientId=${patient.id}`)}>
+              <Plus className="w-4 h-4 mr-2" />New Record
+            </Button>
           </div>
         </div>
       </div>
