@@ -14,6 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ICDCode, DiagnosisSuggestion } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import LabReportBuilder from "@/components/lab/LabReportBuilder";
+import type { LabTestPanelData } from "@/data/labTestPanels";
 
 const recordTypes = ["Prescription", "Lab Report", "Clinical Note"];
 
@@ -32,7 +34,7 @@ interface PrescriptionItem {
 
 const StaffRecordCreate = () => {
   const navigate = useNavigate();
-  const { patients, addRecord } = useData();
+  const { patients, addRecord, organizations } = useData();
   const { user } = useAuth();
   const [type, setType] = useState("Prescription");
   const [icdSearch, setIcdSearch] = useState("");
@@ -42,6 +44,10 @@ const StaffRecordCreate = () => {
   const [description, setDescription] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
+
+  // Lab Report State
+  const [labPanels, setLabPanels] = useState<LabTestPanelData[]>([]);
+  const [labNotes, setLabNotes] = useState("");
 
   // Prescription State
   const [medicines, setMedicines] = useState<PrescriptionItem[]>([]);
@@ -171,6 +177,12 @@ const StaffRecordCreate = () => {
       return;
     }
 
+    // Validation for Lab Report
+    if (type === "Lab Report" && labPanels.length === 0) {
+      toast.error("Please add at least one test panel to create a lab report.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       // 1. Create the Medical Record
@@ -185,14 +197,12 @@ const StaffRecordCreate = () => {
         attachment_name: fileName || undefined,
         created_by: user.id,
         creator_name: user.full_name || 'Staff',
-        organization_id: user.organization_id!, // Assumes org ID is present if user is staff
+        organization_id: user.organization_id!,
       });
 
       // 2. If it's a prescription and has medicines, save them
       if (type === "Prescription" && medicines.length > 0) {
-        if (!record.id) {
-          throw new Error("Record created but ID is missing");
-        }
+        if (!record.id) throw new Error("Record created but ID is missing");
 
         const prescriptionsToInsert = medicines.map(med => ({
           record_id: record.id,
@@ -202,13 +212,38 @@ const StaffRecordCreate = () => {
           duration: med.duration
         }));
 
-        const { data: medData, error: medError } = await supabase.from('prescriptions').insert(prescriptionsToInsert).select();
-
+        const { error: medError } = await supabase.from('prescriptions').insert(prescriptionsToInsert).select();
         if (medError) {
-          // Show error but don't fail the whole process since record is saved
-          toast.error("Record saved, but failed to save medicines: " + medError.message + " (" + medError.details + ")");
-        } else {
-          console.log("Prescriptions saved successfully:", medData);
+          toast.error("Record saved, but failed to save medicines: " + medError.message);
+        }
+      }
+
+      // 3. If it's a lab report, save test panels
+      if (type === "Lab Report" && labPanels.length > 0) {
+        if (!record.id) throw new Error("Record created but ID is missing");
+
+        // Auto-fill from selected patient and logged-in user
+        const patientGender = (selectedPatient as any)?.gender || 'Male';
+        const patientDob = (selectedPatient as any)?.date_of_birth;
+        const patientAge = patientDob ? Math.floor((Date.now() - new Date(patientDob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+
+        const labName = user?.organization_id
+          ? organizations?.find(o => o.id === user.organization_id)?.name || null
+          : null;
+
+        const { error: labError } = await supabase.from('lab_reports').insert({
+          record_id: record.id,
+          lab_name: labName,
+          doctor_name: user?.full_name || 'Staff',
+          patient_age: patientAge,
+          patient_gender: patientGender,
+          notes: labNotes || null,
+          test_panels: labPanels,
+        });
+
+        if (labError) {
+          console.error("Lab Insert Error:", labError);
+          toast.error("Record saved, but failed to save lab data: " + labError.message);
         }
       }
 
@@ -375,41 +410,57 @@ const StaffRecordCreate = () => {
             </div>
           )}
 
-          {/* Diagnosis Text + AI Assist */}
-          <div>
-            <div className="flex items-center justify-between">
-              <Label>Diagnosis / Clinical Notes</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!diagnosis.trim() || aiLoading}
-                onClick={handleAiAssist}
-                className="h-7 text-xs gap-1"
-              >
-                {aiLoading ? (
-                  <><Loader2 className="w-3 h-3 animate-spin" />Analyzing...</>
-                ) : (
-                  <><Sparkles className="w-3 h-3" />AI Assist</>
-                )}
-              </Button>
-            </div>
-            <Textarea
-              placeholder="Describe symptoms, diagnosis, or clinical findings..."
-              className="mt-1.5"
-              rows={3}
-              value={diagnosis}
-              onChange={(e) => setDiagnosis(e.target.value)}
+          {/* LAB REPORT BUILDER (Only for Lab Reports) */}
+          {type === "Lab Report" && (
+            <LabReportBuilder
+              patientName={selectedPatient?.full_name}
+              patientAge={(() => { const dob = (selectedPatient as any)?.date_of_birth; return dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null; })()}
+              patientId={selectedPatient?.patient_id}
+              patientGender={((selectedPatient as any)?.gender as 'Male' | 'Female' | 'Other') || 'Male'}
+              labName={user?.organization_id ? organizations.find(o => o.id === user.organization_id)?.name : undefined}
+              doctorName={user?.full_name || 'Staff'}
+              panels={labPanels} setPanels={setLabPanels}
+              notes={labNotes} setNotes={setLabNotes}
             />
-            {!isGeminiConfigured() && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Demo mode — AI will return simulated suggestions
-              </p>
-            )}
-          </div>
+          )}
+
+          {/* Diagnosis Text + AI Assist (Hidden for Lab Reports) */}
+          {type !== "Lab Report" && (
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Diagnosis / Clinical Notes</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!diagnosis.trim() || aiLoading}
+                  onClick={handleAiAssist}
+                  className="h-7 text-xs gap-1"
+                >
+                  {aiLoading ? (
+                    <><Loader2 className="w-3 h-3 animate-spin" />Analyzing...</>
+                  ) : (
+                    <><Sparkles className="w-3 h-3" />AI Assist</>
+                  )}
+                </Button>
+              </div>
+              <Textarea
+                placeholder="Describe symptoms, diagnosis, or clinical findings..."
+                className="mt-1.5"
+                rows={3}
+                value={diagnosis}
+                onChange={(e) => setDiagnosis(e.target.value)}
+              />
+              {!isGeminiConfigured() && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Demo mode — AI will return simulated suggestions
+                </p>
+              )}
+            </div>
+          )}
 
           {/* AI Suggestion Panel */}
-          {aiSuggestion && (
+          {type !== "Lab Report" && aiSuggestion && (
             <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -473,43 +524,45 @@ const StaffRecordCreate = () => {
           )}
 
           {/* ICD Code Selector */}
-          <div className="relative">
-            <Label>ICD Code</Label>
-            <div className="relative mt-1.5">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search ICD code or diagnosis..."
-                className="pl-9 h-11 sm:h-10"
-                value={selectedIcd ? `${selectedIcd.code} — ${selectedIcd.label}` : icdSearch}
-                onChange={(e) => {
-                  setIcdSearch(e.target.value);
-                  setSelectedIcd(null);
-                  setIcdOpen(true);
-                }}
-                onFocus={() => setIcdOpen(true)}
-              />
-            </div>
-            {icdOpen && !selectedIcd && (
-              <div className="absolute z-50 left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                {filteredIcd.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-muted-foreground">No matching codes</div>
-                ) : (
-                  filteredIcd.slice(0, 20).map((c) => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      className="w-full text-left px-4 py-3 sm:py-2.5 hover:bg-muted/50 transition-colors border-b last:border-0"
-                      onClick={() => { setSelectedIcd(c); setIcdSearch(""); setIcdOpen(false); }}
-                    >
-                      <span className="text-sm font-medium text-foreground">{c.code}</span>
-                      <span className="text-sm text-muted-foreground ml-2">— {c.label}</span>
-                      <span className="text-xs text-muted-foreground ml-2 opacity-60">({c.category})</span>
-                    </button>
-                  ))
-                )}
+          {type !== "Lab Report" && (
+            <div className="relative">
+              <Label>ICD Code</Label>
+              <div className="relative mt-1.5">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search ICD code or diagnosis..."
+                  className="pl-9 h-11 sm:h-10"
+                  value={selectedIcd ? `${selectedIcd.code} — ${selectedIcd.label}` : icdSearch}
+                  onChange={(e) => {
+                    setIcdSearch(e.target.value);
+                    setSelectedIcd(null);
+                    setIcdOpen(true);
+                  }}
+                  onFocus={() => setIcdOpen(true)}
+                />
               </div>
-            )}
-          </div>
+              {icdOpen && !selectedIcd && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                  {filteredIcd.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">No matching codes</div>
+                  ) : (
+                    filteredIcd.slice(0, 20).map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        className="w-full text-left px-4 py-3 sm:py-2.5 hover:bg-muted/50 transition-colors border-b last:border-0"
+                        onClick={() => { setSelectedIcd(c); setIcdSearch(""); setIcdOpen(false); }}
+                      >
+                        <span className="text-sm font-medium text-foreground">{c.code}</span>
+                        <span className="text-sm text-muted-foreground ml-2">— {c.label}</span>
+                        <span className="text-xs text-muted-foreground ml-2 opacity-60">({c.category})</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Title & Description */}
           <div className="grid grid-cols-1 gap-4">

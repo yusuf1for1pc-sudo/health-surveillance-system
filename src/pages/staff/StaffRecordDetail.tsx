@@ -10,6 +10,7 @@ import { Download, FileText, Pill, Loader2, ShieldCheck, User, Calendar, Stethos
 import { useData } from "@/contexts/DataContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import LabReportViewer from "@/components/lab/LabReportViewer";
 
 interface Prescription {
   id: string;
@@ -25,6 +26,8 @@ const StaffRecordDetail = () => {
   const { getRecord, patients } = useData();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
+  const [labReport, setLabReport] = useState<any>(null);
+  const [loadingLabReport, setLoadingLabReport] = useState(false);
 
   // Add Medicine Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -55,8 +58,26 @@ const StaffRecordDetail = () => {
     }
   };
 
+  const fetchLabReport = async () => {
+    if (!id) return;
+    setLoadingLabReport(true);
+    try {
+      const { data, error } = await supabase
+        .from('lab_reports')
+        .select('*')
+        .eq('record_id', id)
+        .maybeSingle();
+      if (!error && data) setLabReport(data);
+    } catch (err) {
+      console.error("Failed to fetch lab report:", err);
+    } finally {
+      setLoadingLabReport(false);
+    }
+  };
+
   useEffect(() => {
     fetchPrescriptions();
+    fetchLabReport();
   }, [id]);
 
   const record = getRecord(id || "");
@@ -200,6 +221,19 @@ const StaffRecordDetail = () => {
 
             {/* Horizontal Divider */}
             <div className="border-t"></div>
+
+            {/* Lab Report Viewer */}
+            {record.record_type === 'Lab Report' && (
+              <div className="space-y-4">
+                {loadingLabReport ? (
+                  <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                ) : labReport ? (
+                  <LabReportViewer labReport={labReport} patientName={patient?.full_name} recordDate={record.created_at} />
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No lab report data found for this record.</p>
+                )}
+              </div>
+            )}
 
             {/* Prescriptions */}
             <div className="space-y-4">

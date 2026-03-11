@@ -47,7 +47,7 @@ BEGIN
     WHERE id = NEW.id;
   END IF;
 
-  -- 2. Insert into profiles (with organization_id if created above)
+  -- 2. Insert into profiles (with organization_id if created above, OR from metadata)
   INSERT INTO public.profiles (id, email, full_name, role, phone, organization_id)
   VALUES (
     NEW.id,
@@ -55,7 +55,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
     COALESCE(NEW.raw_user_meta_data->>'role', 'patient'),
     NEW.raw_user_meta_data->>'phone',
-    new_org_id
+    COALESCE(new_org_id, (NEW.raw_user_meta_data->>'organization_id')::uuid)
   );
 
   -- 3. Insert into patients if role is patient
