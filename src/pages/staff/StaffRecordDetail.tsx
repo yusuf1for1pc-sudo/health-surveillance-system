@@ -10,6 +10,7 @@ import { Download, FileText, Pill, Loader2, ShieldCheck, User, Calendar, Stethos
 import { useData } from "@/contexts/DataContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import LabReportViewer from "@/components/lab/LabReportViewer";
 
 interface Prescription {
   id: string;
@@ -25,6 +26,13 @@ const StaffRecordDetail = () => {
   const { getRecord, patients } = useData();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
+  const [labReport, setLabReport] = useState<any>(null);
+  const [loadingLabReport, setLoadingLabReport] = useState(false);
+
+  // Direct-fetch state (bypasses slow DataContext bulk load)
+  const [directRecord, setDirectRecord] = useState<any>(null);
+  const [directPatient, setDirectPatient] = useState<any>(null);
+  const [loadingRecord, setLoadingRecord] = useState(true);
 
   // Add Medicine Form State
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -36,30 +44,58 @@ const StaffRecordDetail = () => {
     duration: "5 days"
   });
 
-  const fetchPrescriptions = async () => {
-    if (!id) return;
-    setLoadingPrescriptions(true);
-    try {
-      const { data, error } = await supabase
-        .from('prescriptions')
-        .select('*')
-        .eq('record_id', id);
-
-      if (!error && data) {
-        setPrescriptions(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch prescriptions:", err);
-    } finally {
-      setLoadingPrescriptions(false);
-    }
-  };
-
+  // Fetch record + patient + prescriptions + lab report all in parallel
   useEffect(() => {
-    fetchPrescriptions();
+    if (!id) return;
+    setLoadingRecord(true);
+
+    const fetchAll = async () => {
+      // Fire all queries in parallel
+      const [recRes, prescRes, labRes] = await Promise.all([
+        supabase.from('medical_records').select('*').eq('id', id).maybeSingle(),
+        supabase.from('prescriptions').select('*').eq('record_id', id),
+        supabase.from('lab_reports').select('*').eq('record_id', id).maybeSingle(),
+      ]);
+
+      if (recRes.data) {
+        setDirectRecord(recRes.data);
+        // Fetch patient in a follow-up (needs patient_id from record)
+        const { data: patData } = await supabase
+          .from('patients')
+          .select('id, patient_id, full_name, email, phone, gender, date_of_birth, blood_type')
+          .eq('id', recRes.data.patient_id)
+          .maybeSingle();
+        if (patData) setDirectPatient(patData);
+      }
+
+      if (prescRes.data) setPrescriptions(prescRes.data);
+      if (labRes.data) setLabReport(labRes.data);
+
+      setLoadingRecord(false);
+      setLoadingPrescriptions(false);
+      setLoadingLabReport(false);
+    };
+
+    fetchAll().catch((err) => {
+      console.error("Failed to fetch record details:", err);
+      setLoadingRecord(false);
+    });
   }, [id]);
 
-  const record = getRecord(id || "");
+  // Use cache first, fall back to direct fetch
+  const cachedRecord = getRecord(id || "");
+  const record = cachedRecord || directRecord;
+  const patient = patients.find(p => p.id === record?.patient_id) || directPatient;
+
+  if (loadingRecord && !record) {
+    return (
+      <DashboardLayout role="staff">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!record) {
     return (
@@ -70,8 +106,6 @@ const StaffRecordDetail = () => {
       </DashboardLayout>
     );
   }
-
-  const patient = patients.find(p => p.id === record.patient_id);
 
   const formatFrequency = (freq: any) => {
     if (!freq) return "—";
@@ -113,7 +147,9 @@ const StaffRecordDetail = () => {
         frequency: { morning: true, afternoon: false, evening: false, night: true },
         duration: "5 days"
       });
-      fetchPrescriptions(); // Refresh list
+      // Refresh prescriptions list
+      const { data: refreshed } = await supabase.from('prescriptions').select('*').eq('record_id', id);
+      if (refreshed) setPrescriptions(refreshed);
     } catch (err: any) {
       toast.error("Failed to add medicine: " + err.message);
     } finally {
@@ -200,6 +236,19 @@ const StaffRecordDetail = () => {
 
             {/* Horizontal Divider */}
             <div className="border-t"></div>
+
+            {/* Lab Report Viewer */}
+            {record.record_type === 'Lab Report' && (
+              <div className="space-y-4">
+                {loadingLabReport ? (
+                  <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                ) : labReport ? (
+                  <LabReportViewer labReport={labReport} patientName={patient?.full_name} recordDate={record.created_at} />
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No lab report data found for this record.</p>
+                )}
+              </div>
+            )}
 
             {/* Prescriptions */}
             <div className="space-y-4">

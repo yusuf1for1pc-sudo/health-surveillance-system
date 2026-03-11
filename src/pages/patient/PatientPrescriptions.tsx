@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import DataTable from "@/components/dashboard/DataTable";
@@ -8,6 +9,7 @@ import { Loader2 } from "lucide-react";
 
 interface Prescription {
   id: string;
+  record_id: string;
   medicine_name: string;
   dosage: string;
   frequency: any; // jsonb
@@ -16,11 +18,12 @@ interface Prescription {
   medical_records: {
     creator_name: string;
     created_at: string;
-  };
+  }[];
 }
 
 const PatientPrescriptions = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,6 +38,7 @@ const PatientPrescriptions = () => {
           .from('prescriptions')
           .select(`
             id,
+            record_id,
             medicine_name,
             dosage,
             frequency,
@@ -76,12 +80,13 @@ const PatientPrescriptions = () => {
 
   const tableData = prescriptions.map(p => ({
     id: p.id,
+    record_id: p.record_id,
     medication: p.medicine_name,
     dosage: p.dosage || "—",
     frequency: formatFrequency(p.frequency),
     duration: p.duration || "—",
-    doctor: p.medical_records?.creator_name || "Unknown",
-    date: new Date(p.medical_records?.created_at || p.created_at).toLocaleDateString(),
+    doctor: p.medical_records?.[0]?.creator_name || "Unknown",
+    date: new Date(p.medical_records?.[0]?.created_at || p.created_at).toLocaleDateString(),
     status: "Active" // You could calculate this based on date + duration if needed
   }));
 
@@ -105,6 +110,7 @@ const PatientPrescriptions = () => {
             { key: "date", header: "Date" },
           ]}
           data={tableData}
+          onRowClick={(item: any) => navigate(`/patient/history/${item.record_id}`)}
         />
       )}
     </DashboardLayout>

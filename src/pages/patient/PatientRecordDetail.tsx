@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, Pill, Loader2, Calendar, Stethoscope, FileOutput, ArrowLeft } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { supabase } from "@/lib/supabase";
+import LabReportViewer from "@/components/lab/LabReportViewer";
 
 interface Prescription {
     id: string;
@@ -21,38 +22,60 @@ const PatientRecordDetail = () => {
     const { getRecord } = useData();
     const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
     const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
+    const [labReport, setLabReport] = useState<any>(null);
+    const [loadingLabReport, setLoadingLabReport] = useState(false);
 
+    // Direct-fetch state (bypasses slow DataContext bulk load)
+    const [directRecord, setDirectRecord] = useState<any>(null);
+    const [loadingRecord, setLoadingRecord] = useState(true);
+
+    // Fetch record + prescriptions + lab report all in parallel
     useEffect(() => {
-        const fetchPrescriptions = async () => {
-            if (!id) return;
-            setLoadingPrescriptions(true);
-            try {
-                const { data, error } = await supabase
-                    .from('prescriptions')
-                    .select('*')
-                    .eq('record_id', id);
+        if (!id) return;
+        setLoadingRecord(true);
 
-                if (!error && data) {
-                    setPrescriptions(data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch prescriptions:", err);
-            } finally {
-                setLoadingPrescriptions(false);
-            }
+        const fetchAll = async () => {
+            const [recRes, prescRes, labRes] = await Promise.all([
+                supabase.from('medical_records').select('*').eq('id', id).maybeSingle(),
+                supabase.from('prescriptions').select('*').eq('record_id', id),
+                supabase.from('lab_reports').select('*').eq('record_id', id).maybeSingle(),
+            ]);
+
+            if (recRes.data) setDirectRecord(recRes.data);
+            if (prescRes.data) setPrescriptions(prescRes.data);
+            if (labRes.data) setLabReport(labRes.data);
+
+            setLoadingRecord(false);
+            setLoadingPrescriptions(false);
+            setLoadingLabReport(false);
         };
 
-        fetchPrescriptions();
+        fetchAll().catch((err) => {
+            console.error("Failed to fetch record details:", err);
+            setLoadingRecord(false);
+        });
     }, [id]);
 
-    const record = getRecord(id || "");
+    // Use cache first, fall back to direct fetch
+    const cachedRecord = getRecord(id || "");
+    const record = cachedRecord || directRecord;
+
+    if (loadingRecord && !record) {
+        return (
+            <DashboardLayout role="patient">
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     if (!record) {
         return (
             <DashboardLayout role="patient">
                 <PageHeader title="Record Not Found" />
                 <p className="text-muted-foreground">No record found with this ID.</p>
-                <Button className="mt-4" onClick={() => navigate("/patient/history")}>Back only to History</Button>
+                <Button className="mt-4" onClick={() => navigate("/patient/history")}>Back to History</Button>
             </DashboardLayout>
         );
     }
@@ -129,6 +152,19 @@ const PatientRecordDetail = () => {
 
                         {/* Horizontal Divider */}
                         <div className="border-t"></div>
+
+                        {/* Lab Report Viewer */}
+                        {record.record_type === 'Lab Report' && (
+                            <div className="space-y-4">
+                                {loadingLabReport ? (
+                                    <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                                ) : labReport ? (
+                                    <LabReportViewer labReport={labReport} patientName={undefined} recordDate={record.created_at} />
+                                ) : (
+                                    <p className="text-sm text-muted-foreground italic">No lab report data found.</p>
+                                )}
+                            </div>
+                        )}
 
                         {/* Prescriptions */}
                         <div className="space-y-4">
