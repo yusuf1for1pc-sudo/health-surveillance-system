@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, Search, Sparkles, Check, X, Loader2, Plus, Trash2, Pill } from "lucide-react";
+import { Upload, Search, Sparkles, Check, X, Loader2, Plus, Trash2, Pill, AlertTriangle } from "lucide-react";
 import { searchIcdCodes } from "@/data/icdCodes";
 import { suggestDiagnosis, isGeminiConfigured } from "@/lib/gemini";
 import { useData } from "@/contexts/DataContext";
@@ -18,6 +18,47 @@ import LabReportBuilder from "@/components/lab/LabReportBuilder";
 import type { LabTestPanelData } from "@/data/labTestPanels";
 
 const recordTypes = ["Prescription", "Lab Report", "Clinical Note"];
+
+// ─── Allergy → Drug interaction map (prescription safety check) ───
+const ALLERGY_DRUG_MAP: Record<string, { drugs: string[]; alternative: string }> = {
+  penicillin: { drugs: ["penicillin", "amoxicillin", "ampicillin", "augmentin", "piperacillin"], alternative: "Azithromycin" },
+  aspirin: { drugs: ["aspirin", "acetylsalicylic acid", "dispirin"], alternative: "Paracetamol" },
+  sulfa: { drugs: ["sulfamethoxazole", "co-trimoxazole", "bactrim", "septran"], alternative: "Amoxicillin" },
+  nsaid: { drugs: ["ibuprofen", "naproxen", "diclofenac", "piroxicam", "indomethacin"], alternative: "Paracetamol" },
+  cephalosporin: { drugs: ["cephalexin", "cefixime", "ceftriaxone", "cefuroxime"], alternative: "Azithromycin" },
+  metformin: { drugs: ["metformin", "glucophage"], alternative: "Glipizide" },
+};
+
+interface AllergyAlert {
+  medicineName: string;
+  allergen: string;
+  alternative: string;
+}
+
+const checkAllergyConflict = (medicineName: string, patientAllergies: string | undefined): AllergyAlert | null => {
+  if (!patientAllergies || !medicineName) return null;
+  const allergies = patientAllergies.toLowerCase().split(/[,;]+/).map(a => a.trim());
+  const medLower = medicineName.toLowerCase();
+
+  for (const allergy of allergies) {
+    if (!allergy) continue;
+    // Check each allergen category
+    for (const [allergen, { drugs, alternative }] of Object.entries(ALLERGY_DRUG_MAP)) {
+      // Does the patient's allergy match this category?
+      if (allergen.includes(allergy) || allergy.includes(allergen)) {
+        // Does the prescribed drug belong to this category?
+        if (drugs.some(d => medLower.includes(d) || d.includes(medLower))) {
+          return { medicineName, allergen: allergy, alternative };
+        }
+      }
+    }
+    // Direct name match (e.g. patient allergic to "Paracetamol" and doctor prescribes "Paracetamol")
+    if (medLower.includes(allergy) || allergy.includes(medLower)) {
+      return { medicineName, allergen: allergy, alternative: "Consult pharmacist for safe alternative" };
+    }
+  }
+  return null;
+};
 
 interface PrescriptionItem {
   id: string;
@@ -76,13 +117,14 @@ const StaffRecordCreate = () => {
         setSelectedPatient(p);
       }
     }
-  // Only run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // AI Diagnosis
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<DiagnosisSuggestion | null>(null);
+  const [allergyAlerts, setAllergyAlerts] = useState<AllergyAlert[]>([]);
 
   const filteredIcd = useMemo(() => searchIcdCodes(icdSearch), [icdSearch]);
 
@@ -136,6 +178,18 @@ const StaffRecordCreate = () => {
 
   const addMedicine = () => {
     if (!newMed.name) return;
+
+    // ── Allergy Safety Check ──
+    const alert = checkAllergyConflict(newMed.name, selectedPatient?.allergies);
+    if (alert) {
+      setAllergyAlerts(prev => {
+        // Avoid duplicate alerts for the same medicine
+        if (prev.some(a => a.medicineName.toLowerCase() === alert.medicineName.toLowerCase())) return prev;
+        return [...prev, alert];
+      });
+      toast.warning(`⚠️ Allergy Alert: Patient may be allergic to ${newMed.name}. Consider ${alert.alternative} instead.`, { duration: 6000 });
+    }
+
     setMedicines([...medicines, { ...newMed, id: crypto.randomUUID() }]);
     setNewMed({
       id: "",
@@ -147,7 +201,12 @@ const StaffRecordCreate = () => {
   };
 
   const removeMedicine = (id: string) => {
+    const med = medicines.find(m => m.id === id);
     setMedicines(medicines.filter(m => m.id !== id));
+    // Clear any allergy alert for this medicine
+    if (med) {
+      setAllergyAlerts(prev => prev.filter(a => a.medicineName.toLowerCase() !== med.name.toLowerCase()));
+    }
   };
 
   const toggleFrequency = (key: keyof typeof newMed.frequency) => {
@@ -322,10 +381,15 @@ const StaffRecordCreate = () => {
                           key={p.id}
                           type="button"
                           className="w-full text-left px-4 py-3 sm:py-2.5 hover:bg-muted/50 transition-colors border-b last:border-0"
-                          onClick={() => { setSelectedPatient(p); setPatientSearch(""); setPatientOpen(false); }}
+                          onClick={() => { setSelectedPatient(p); setPatientSearch(""); setPatientOpen(false); setAllergyAlerts([]); }}
                         >
-                          <span className="text-sm font-medium text-foreground">{p.full_name}</span>
-                          <span className="text-sm text-muted-foreground ml-2">— {p.patient_id}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground">{p.full_name}</span>
+                            <span className="text-sm text-muted-foreground">— {p.patient_id}</span>
+                            {p.allergies && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded font-medium">⚠ Allergies</span>
+                            )}
+                          </div>
                         </button>
                       ))
                     )}
@@ -334,6 +398,16 @@ const StaffRecordCreate = () => {
               </>
             )}
           </div>
+
+          {/* Allergy info badge for selected patient */}
+          {selectedPatient?.allergies && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="text-xs text-amber-700 dark:text-amber-400">
+                <span className="font-semibold">Known Allergies:</span> {selectedPatient.allergies}
+              </span>
+            </div>
+          )}
 
           {/* Record Type */}
           <div>
@@ -360,6 +434,29 @@ const StaffRecordCreate = () => {
                 <Pill className="w-5 h-5 text-primary" />
                 <h3 className="font-semibold text-foreground">Medications</h3>
               </div>
+
+              {/* ── Allergy Alert Banner ── */}
+              {allergyAlerts.length > 0 && (
+                <div className="space-y-2">
+                  {allergyAlerts.map((alert, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">⚠ Allergy Alert</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                          Patient allergic to <span className="font-bold capitalize">{alert.allergen}</span> — <span className="font-medium">{alert.medicineName}</span> may cause a reaction.
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                          Recommended alternative: <span className="font-semibold">{alert.alternative}</span>
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => setAllergyAlerts(prev => prev.filter((_, idx) => idx !== i))} className="text-amber-500 hover:text-amber-700">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* List of Added Medicines */}
               {medicines.length > 0 && (
