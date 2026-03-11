@@ -70,7 +70,9 @@ def get_forecast(disease: Optional[str] = None, days: int = 30, state: Optional[
     df = pd.DataFrame(records)
     
     # We want to count daily occurrences 
-    df['ds'] = pd.to_datetime(df['created_at']).dt.date
+    df['ds'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
+    # Drop rows with invalid dates just in case
+    df = df.dropna(subset=['ds'])
     daily_counts = df.groupby('ds').size().reset_index(name='y')
     
     # Ensure dataset is large enough
@@ -239,7 +241,8 @@ def get_anomalies(disease: Optional[str] = None, contamination: float = 0.1, sta
         return {"anomalies": [], "message": "No data available."}
         
     df = pd.DataFrame(records)
-    df['date'] = pd.to_datetime(df['created_at']).dt.date
+    df['date'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
+    df = df.dropna(subset=['date'])
     daily = df.groupby('date').size().reset_index(name='count')
     
     if len(daily) < 10:
@@ -295,7 +298,8 @@ def get_r_value(disease: Optional[str] = None, window: int = 7, state: Optional[
         return {"r_values": [], "message": "No data available."}
         
     df = pd.DataFrame(records)
-    df['date'] = pd.to_datetime(df['created_at']).dt.date
+    df['date'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
+    df = df.dropna(subset=['date'])
     daily = df.groupby('date').size().reset_index(name='count').sort_values('date')
     
     if len(daily) < window * 2:
@@ -415,7 +419,8 @@ def get_situation_report(disease: str = None):
         return {"report": "No data available to generate a situation report."}
     
     df = pd.DataFrame(records)
-    df['date'] = pd.to_datetime(df['created_at']).dt.date
+    df['date'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
+    df = df.dropna(subset=['date'])
     
     # Compute summary stats
     total_cases = len(df)
@@ -612,7 +617,8 @@ def get_r_value_breakdown(city: Optional[str] = None, window: int = 7):
             continue
 
         df = pd.DataFrame(records)
-        df['date'] = pd.to_datetime(df['created_at']).dt.date
+        df['date'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
+        df = df.dropna(subset=['date'])
         daily = df.groupby('date').size().reset_index(name='count').sort_values('date')
 
         if len(daily) < window * 2:

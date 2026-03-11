@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
-import { Activity, AlertTriangle, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line,
@@ -19,7 +19,7 @@ const GovWorkspace = () => {
   const [rValue, setRValue] = useState<RValueResponse | null>(null);
   const [anomalies, setAnomalies] = useState<AnomaliesResponse | null>(null);
   const [rBreakdown, setRBreakdown] = useState<RValueBreakdownResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Geo filters
@@ -39,30 +39,37 @@ const GovWorkspace = () => {
     return () => clearTimeout(t);
   }, [ward]);
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    logSurveillanceAccess("dashboard_load", { state, city: debouncedCity, ward: debouncedWard });
-    const s = state || undefined;
-    const c = debouncedCity || undefined;
-    const w = debouncedWard || undefined;
-    Promise.allSettled([
-      getForecast(undefined, 14, s, c, w),
-      getRValue(undefined, 7, s, c, w),
-      getAnomalies(undefined, 0.1, s, c, w),
-      getRValueBreakdown(c),
-    ])
-      .then(([f, r, a, rb]) => {
-        if (f.status === "fulfilled") setForecast(f.value);
-        if (r.status === "fulfilled") setRValue(r.value);
-        if (a.status === "fulfilled") setAnomalies(a.value);
-        if (rb.status === "fulfilled") setRBreakdown(rb.value);
-        if (f.status === "rejected" && r.status === "rejected" && a.status === "rejected") {
-          setError("ML backend not reachable. Ensure the FastAPI server is running on port 8000.");
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [state, debouncedCity, debouncedWard]);
+    // Manual trigger for heavy ML calculations
+    const fetchMLData = () => {
+        setLoading(true);
+        setError(null);
+        logSurveillanceAccess("dashboard_load", { state, city: debouncedCity, ward: debouncedWard });
+        const s = state || undefined;
+        const c = debouncedCity || undefined;
+        const w = debouncedWard || undefined;
+        Promise.allSettled([
+            getForecast(undefined, 14, s, c, w),
+            getRValue(undefined, 7, s, c, w),
+            getAnomalies(undefined, 0.1, s, c, w),
+            getRValueBreakdown(c),
+        ])
+            .then(([f, r, a, rb]) => {
+                if (f.status === "fulfilled") setForecast(f.value);
+                if (r.status === "fulfilled") setRValue(r.value);
+                if (a.status === "fulfilled") setAnomalies(a.value);
+                if (rb.status === "fulfilled") setRBreakdown(rb.value);
+                if (f.status === "rejected" && r.status === "rejected" && a.status === "rejected") {
+                    setError("ML backend not reachable. Ensure the FastAPI server is running on port 8000.");
+                }
+            })
+            .finally(() => setLoading(false));
+    };
+
+    // Run once on initial open
+    useEffect(() => {
+        fetchMLData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
   // Build chart data from forecast
   const forecastChart = forecast
@@ -95,16 +102,26 @@ const GovWorkspace = () => {
         </div>
       )}
 
-      {/* ── Geo Filters ── */}
-      <div className="mb-6">
-        <GeoFilterBar
-          state={state}
-          city={city}
-          ward={ward}
-          onStateChange={setState}
-          onCityChange={setCity}
-          onWardChange={setWard}
-        />
+      {/* ── Geo Filters & Controls ── */}
+      <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-end">
+        <div className="flex-1 w-full">
+          <GeoFilterBar
+            state={state}
+            city={city}
+            ward={ward}
+            onStateChange={setState}
+            onCityChange={setCity}
+            onWardChange={setWard}
+          />
+        </div>
+        <button
+          onClick={fetchMLData}
+          disabled={loading}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition-all focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 shrink-0"
+        >
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <BarChart3 className="w-5 h-5" />}
+          {loading ? "Computing ML Insights..." : "Load ML Insights"}
+        </button>
       </div>
 
       {/* ── KPI Row ── */}
@@ -118,19 +135,19 @@ const GovWorkspace = () => {
         <StatCard
           title="R-Value (Rt)"
           value={loading ? "..." : (rValue && rValue.current_r != null ? Number(rValue.current_r).toFixed(2) : "N/A")}
-          subtitle={rValue ? rValue.current_status : "Loading..."}
+          subtitle={loading ? "Computing..." : (rValue ? rValue.current_status : "Data not loaded")}
           icon={<TrendingUp className="w-5 h-5" />}
         />
         <StatCard
           title="Anomaly Days"
-          value={loading ? "..." : (anomalies ? anomalies.stats.anomaly_days : 0)}
-          subtitle={anomalies ? `anomalous days — last 30 days` : "Loading..."}
+          value={loading ? "..." : (anomalies ? anomalies.stats.anomaly_days : "N/A")}
+          subtitle={loading ? "Computing..." : (anomalies ? `anomalous days — last 30 days` : "Data not loaded")}
           icon={<AlertTriangle className="w-5 h-5" />}
         />
         <StatCard
           title="Leptospirosis Spike"
           value={loading ? "..." : (rValue && rValue.multiplier ? `${rValue.multiplier}×` : "N/A")}
-          subtitle="above seasonal baseline"
+          subtitle={loading ? "Computing..." : (rValue ? "above seasonal baseline" : "Data not loaded")}
           icon={<AlertTriangle className="w-5 h-5" />}
         />
       </div>
