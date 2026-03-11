@@ -227,6 +227,12 @@ CITIES.filter(c => c.state !== 'Maharashtra').forEach(cityDef => {
     }
 });
 
+// ─── Assign allergies to some patients for prescription safety demo ───
+const DEMO_ALLERGIES = ['Penicillin', 'Aspirin', 'Sulfa', 'NSAID', 'Penicillin, Aspirin'];
+mockPatients.forEach((p, i) => {
+    if (i % 3 === 0) p.allergies = DEMO_ALLERGIES[i % DEMO_ALLERGIES.length];
+});
+
 // ─── Organizations ─────────────────────────────────────────
 export const mockOrganizations: Organization[] = [
     { id: 'org-mh-1', name: 'KEM Hospital Mumbai', type: 'Hospital', email: 'admin@kem.gov.in', phone: '+91 22-2410-7000', address: 'Parel', status: 'approved', city: 'Mumbai', state: 'Maharashtra', country: 'India', pincode: '400012', certificate_status: 'verified', staff_count: 24, patient_count: 456, created_at: '2025-06-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
