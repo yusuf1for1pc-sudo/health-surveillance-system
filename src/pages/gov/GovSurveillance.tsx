@@ -171,35 +171,24 @@ const GovSurveillance = () => {
     return dateMap;
   }, [filteredRecords]);
 
-  // Filter valid records for the MAP based on pre-aggregated timeline and disease
+  // Filter valid records for the MAP using a rolling 60-day window around the slider date
+  // This ensures the heatmap reflects seasonal patterns — density rises during monsoon and falls after
   const mapRecords = useMemo(() => {
+    const ROLLING_WINDOW_MS = 60 * 24 * 60 * 60 * 1000; // 60-day rolling window
+    const windowStart = sliderDate - ROLLING_WINDOW_MS;
     const visibleRecords: typeof filteredRecords = [];
 
-    // O(K) lookup where K is number of unique days <= sliderDate
-    // This scales significantly better than scanning 10,000s of elements on every tick
     Object.entries(recordsByDate).forEach(([dateMsStr, dailyRecords]) => {
       const dateMs = Number(dateMsStr);
-      if (dateMs <= sliderDate) {
+      // Only include records within the rolling window [sliderDate - 60 days, sliderDate]
+      if (dateMs >= windowStart && dateMs <= sliderDate) {
         if (selectedDisease === "All") {
-          visibleRecords.push(...dailyRecords.filter(r => {
-            // Drop recovered cases that are older than 14 days to prevent heatmap infinite densification
-            if ((r as any).status === 'RECOVERED') {
-              const activeWindowEnds = dateMs + (30 * 24 * 60 * 60 * 1000);
-              if (sliderDate > activeWindowEnds) return false;
-            }
-            return true;
-          }));
+          visibleRecords.push(...dailyRecords);
         } else {
           visibleRecords.push(
             ...dailyRecords.filter(r => {
               const d = normalizeDiseaseName(r.diagnosis || r.icd_label || "");
-              if (d !== selectedDisease) return false;
-
-              if ((r as any).status === 'RECOVERED') {
-                const activeWindowEnds = dateMs + (30 * 24 * 60 * 60 * 1000);
-                if (sliderDate > activeWindowEnds) return false;
-              }
-              return true;
+              return d === selectedDisease;
             })
           );
         }
