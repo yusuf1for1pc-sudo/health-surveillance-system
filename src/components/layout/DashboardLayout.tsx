@@ -121,7 +121,14 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className={`min-h-screen flex ${themeClass}`}>
+    <div className={`min-h-screen flex ${themeClass} relative overflow-hidden`}>
+      {/* Background Blobs */}
+      <div className="blob-bg">
+        <div className="blob blob-1" />
+        <div className="blob blob-2" />
+        <div className="blob blob-3" />
+      </div>
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-foreground/20 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -129,7 +136,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed lg:sticky top-0 left-0 h-screen w-64 glass-panel border-r z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
         <div className="p-6 border-b flex items-center justify-between">
@@ -158,9 +165,9 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 ${isActive
+                  ? "bg-primary text-primary-foreground font-medium shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-[1.02]"
+                  : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
                   }`}
               >
                 {item.icon}
@@ -220,9 +227,9 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 glass-panel border-l-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b px-4 lg:px-8 h-14 flex items-center">
+        <header className="sticky top-0 z-30 glass-panel border-b-0 border-x-0 px-4 lg:px-8 h-14 flex items-center shadow-sm">
           <button className="lg:hidden mr-4 text-muted-foreground" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </button>

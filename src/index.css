@@ -123,10 +123,42 @@
 }
 
 @layer utilities {
-  .card-shadow {
-    box-shadow: var(--shadow-card);
-  }
   .card-shadow-hover {
-    box-shadow: var(--shadow-card-hover);
+    @apply shadow-lg;
+  }
+
+  .glass-panel {
+    @apply bg-white/40 dark:bg-black/20 backdrop-blur-xl border border-white/40 dark:border-white/10;
+  }
+
+  .glass-card {
+    @apply bg-white/60 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-xl;
+  }
+
+  .blob-bg {
+    @apply fixed inset-0 -z-10 overflow-hidden pointer-events-none opacity-40;
+  }
+
+  .blob {
+    @apply absolute w-96 h-96 rounded-full blur-[100px] animate-pulse;
+  }
+
+  .blob-1 {
+    @apply bg-blue-400/30 -top-24 -left-24;
+    animation-duration: 15s;
+  }
+
+  .blob-2 {
+    @apply bg-purple-400/20 top-1/2 -right-24;
+    animation-duration: 20s;
+  }
+
+  .blob-3 {
+    @apply bg-teal-400/20 -bottom-24 left-1/2;
+    animation-duration: 25s;
+  }
+
+  .stat-card-gradient {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
   }
 }

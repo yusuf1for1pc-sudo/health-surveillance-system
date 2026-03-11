@@ -8,15 +8,16 @@ interface StatCardProps {
 }
 
 const StatCard = ({ title, value, subtitle, icon }: StatCardProps) => (
-  <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow hover:card-shadow-hover transition-shadow">
-    <div className="flex items-start justify-between">
+  <div className="glass-card rounded-2xl p-6 sm:p-7 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl relative overflow-hidden group">
+    <div className="absolute inset-0 stat-card-gradient opacity-50 group-hover:opacity-100 transition-opacity" />
+    <div className="flex items-start justify-between relative z-10">
       <div className="min-w-0">
-        <p className="text-xs sm:text-sm text-muted-foreground">{title}</p>
-        <p className="text-2xl sm:text-3xl font-semibold mt-1 text-foreground">{value}</p>
-        {subtitle && <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">{subtitle}</p>}
+        <p className="text-xs sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</p>
+        <p className="text-3xl sm:text-4xl font-bold mt-2 text-foreground tracking-tight">{value}</p>
+        {subtitle && <p className="text-xs sm:text-sm text-muted-foreground/80 mt-1.5">{subtitle}</p>}
       </div>
       {icon && (
-        <div className="p-2 sm:p-2.5 rounded-lg bg-accent text-accent-foreground shrink-0">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-primary/10 text-primary shrink-0 shadow-inner">
           {icon}
         </div>
       )}
