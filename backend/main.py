@@ -52,68 +52,60 @@ def get_forecast(disease: Optional[str] = None, days: int = 30, state: Optional[
     """
     Uses Facebook Prophet to forecast disease cases over the next `days` days.
     """
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database connection not initialized.")
-        
-    rpc_params = {}
-    if disease: rpc_params["p_disease"] = disease
-    if state: rpc_params["p_state"] = state
-    if city: rpc_params["p_city"] = city
-    if ward: rpc_params["p_ward"] = ward
-    
-    result = supabase.rpc("get_filtered_medical_records", rpc_params).execute()
-    records = result.data
-    
-    if not records:
-        return {"dates": [], "predictions": [], "lower": [], "upper": [], "message": "No data available format forecasting."}
-        
-    df = pd.DataFrame(records)
-    
-    # We want to count daily occurrences 
-    df['ds'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
-    # Drop rows with invalid dates just in case
-    df = df.dropna(subset=['ds'])
-    daily_counts = df.groupby('ds').size().reset_index(name='y')
-    
-    # Ensure dataset is large enough
-    if len(daily_counts) < 3:
-        return {"dates": [], "predictions": [], "lower": [], "upper": [], "message": "Insufficient data points for forecasting."}
+    try:
+        if not supabase:
+            return {"dates": [], "predictions": [], "lower": [], "upper": [], "message": "Database connection not initialized."}
 
-    from prophet import Prophet
-    
-    # Add capacity cap to prevent unrealistic exponential growth
-    daily_counts['cap'] = 150
-    daily_counts['monsoon'] = pd.to_datetime(daily_counts['ds']).dt.month.isin([6, 7, 8, 9]).astype(int)
-    
-    # Initialize and fit the model using logistic growth and tuned changepoints
-    # This prevents linear explosions and detects outbreaks rapidly
-    m = Prophet(
-        growth='logistic',
-        weekly_seasonality=True, 
-        yearly_seasonality=True,
-        seasonality_mode='multiplicative',
-        changepoint_prior_scale=0.08
-    )
-    m.add_regressor('monsoon')
-    m.fit(daily_counts)
-    
-    # Make future dataframe
-    future = m.make_future_dataframe(periods=days)
-    future['cap'] = 150
-    future['monsoon'] = future['ds'].dt.month.isin([6, 7, 8, 9]).astype(int)
-    forecast = m.predict(future)
-    
-    # Extract only the future predictions or recent past to return to frontend
-    forecast_subset = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(days + 7) # last 7 days + 30 days future
-    
-    # Format and return the payload
-    # Cap negative predictions at 0
-    return {
-        "dates": forecast_subset['ds'].dt.strftime('%Y-%m-%d').tolist(),
-        "predictions": [max(0, round(x)) for x in forecast_subset['yhat'].tolist()],
-        "lower": [max(0, round(x)) for x in forecast_subset['yhat_lower'].tolist()],
-        "upper": [max(0, round(x)) for x in forecast_subset['yhat_upper'].tolist()]
-    }
+        rpc_params = {}
+        if disease: rpc_params["p_disease"] = disease
+        if state: rpc_params["p_state"] = state
+        if city: rpc_params["p_city"] = city
+        if ward: rpc_params["p_ward"] = ward
+
+        result = supabase.rpc("get_filtered_medical_records", rpc_params).execute()
+        records = result.data
+
+        if not records:
+            return {"dates": [], "predictions": [], "lower": [], "upper": [], "message": "No data available for forecasting."}
+
+        df = pd.DataFrame(records)
+        df['ds'] = pd.to_datetime(df['created_at'], format='mixed', errors='coerce').dt.date
+        df = df.dropna(subset=['ds'])
+        daily_counts = df.groupby('ds').size().reset_index(name='y')
+
+        if len(daily_counts) < 3:
+            return {"dates": [], "predictions": [], "lower": [], "upper": [], "message": "Insufficient data points for forecasting."}
+
+        # Add capacity cap to prevent unrealistic exponential growth
+        daily_counts['cap'] = 150
+        daily_counts['monsoon'] = pd.to_datetime(daily_counts['ds']).dt.month.isin([6, 7, 8, 9]).astype(int)
+
+        from prophet import Prophet
+        m = Prophet(
+            growth='logistic',
+            weekly_seasonality=True,
+            yearly_seasonality=True,
+            seasonality_mode='multiplicative',
+            changepoint_prior_scale=0.08
+        )
+        m.add_regressor('monsoon')
+        m.fit(daily_counts)
+
+        future = m.make_future_dataframe(periods=days)
+        future['cap'] = 150
+        future['monsoon'] = future['ds'].dt.month.isin([6, 7, 8, 9]).astype(int)
+        forecast = m.predict(future)
+
+        forecast_subset = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(days + 7)
+
+        return {
+            "dates": forecast_subset['ds'].dt.strftime('%Y-%m-%d').tolist(),
+            "predictions": [max(0, round(x)) for x in forecast_subset['yhat'].tolist()],
+            "lower": [max(0, round(x)) for x in forecast_subset['yhat_lower'].tolist()],
+            "upper": [max(0, round(x)) for x in forecast_subset['yhat_upper'].tolist()]
+        }
+    except Exception as e:
+        return {"dates": [], "predictions": [], "lower": [], "upper": [], "message": f"Forecast error: {str(e)}"}
 
 @app.get("/clusters")
 def get_clusters(disease: str = None, eps: float = 0.05, min_samples: int = 3):
