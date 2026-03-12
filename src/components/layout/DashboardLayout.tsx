@@ -137,15 +137,15 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-slate-900/90 dark:bg-black/80 backdrop-blur-2xl border-r border-white/10 z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed lg:sticky top-0 left-0 h-screen w-64 glass-panel border-r z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
         <div className="p-6 border-b flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center transition-transform group-hover:scale-110">
-              <span className="text-white font-bold text-sm">T</span>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">T</span>
             </div>
-            <span className="font-semibold text-white">Tempest</span>
+            <span className="font-semibold text-foreground">Tempest</span>
           </Link>
           <button className="lg:hidden text-muted-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5" />
@@ -166,9 +166,9 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 border ${isActive
-                  ? "bg-green-400 text-green-950 font-bold border-white shadow-[0_0_20px_rgba(74,222,128,0.4)] scale-[1.05]"
-                  : "text-slate-400 hover:bg-white/10 hover:text-white border-transparent"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 ${isActive
+                  ? "bg-primary text-primary-foreground font-medium shadow-[0_0_20px_rgba(var(--primary),0.3)] scale-[1.02]"
+                  : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
                   }`}
               >
                 {item.icon}
@@ -178,16 +178,16 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10 space-y-3 relative">
+        <div className="p-4 border-t space-y-2 relative">
           {user && (
-            <div className="px-3 py-1">
-              <p className="text-sm font-semibold text-white truncate">{user.full_name}</p>
-              <p className="text-xs text-slate-400 truncate tracking-wide">{user.email}</p>
+            <div className="px-3 py-2">
+              <p className="text-sm font-medium text-foreground truncate">{user.full_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           )}
           <button
             onClick={() => setShowSignOutModal(true)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 border border-transparent hover:border-white/10"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <LogOut className="w-5 h-5" />
             Sign Out

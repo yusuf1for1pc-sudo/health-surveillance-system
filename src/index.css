@@ -153,10 +153,6 @@
     @apply bg-white/60 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-xl;
   }
 
-  .glass-card-green {
-    @apply bg-green-500/[0.1] dark:bg-green-500/[0.15] backdrop-blur-xl border border-green-500/20 dark:border-green-500/30 shadow-2xl;
-  }
-
   .blob-bg {
     @apply fixed inset-0 -z-10 overflow-hidden pointer-events-none opacity-40;
   }

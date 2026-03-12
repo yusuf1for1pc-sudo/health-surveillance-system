@@ -8,8 +8,8 @@ interface StatCardProps {
 }
 
 const StatCard = ({ title, value, subtitle, icon }: StatCardProps) => (
-  <div className="glass-card-green rounded-2xl p-6 sm:p-7 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl relative overflow-hidden group">
-    <div className="absolute inset-0 bg-green-500/[0.05] group-hover:bg-green-500/[0.08] transition-colors" />
+  <div className="glass-card rounded-2xl p-6 sm:p-7 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl relative overflow-hidden group">
+    <div className="absolute inset-0 stat-card-gradient opacity-50 group-hover:opacity-100 transition-opacity" />
     <div className="flex items-start justify-between relative z-10">
       <div className="min-w-0">
         <p className="text-xs sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</p>
