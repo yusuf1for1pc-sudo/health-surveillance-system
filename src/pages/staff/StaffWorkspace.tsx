@@ -57,24 +57,16 @@ const StaffWorkspace = () => {
   return (
     <DashboardLayout role="staff">
       <PageHeader title="Staff Dashboard" description={orgName ? `${orgName} — Your patient and record overview` : "Your patient and record overview"} />
-      <div className="grid sm:grid-cols-2 gap-6 mb-10">
-        <StatCard title="My Patients" value={myPatients.length} subtitle={`${myPatients.filter(p => { const d = new Date(p.created_at); const week = new Date(); week.setDate(week.getDate() - 7); return d >= week; }).length} new this week`} icon={<Users className="w-6 h-6" />} />
-        <StatCard title="My Records" value={myRecords.length} subtitle="Created by you" icon={<FileText className="w-6 h-6" />} />
+      <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        <StatCard title="My Patients" value={myPatients.length} subtitle={`${myPatients.filter(p => { const d = new Date(p.created_at); const week = new Date(); week.setDate(week.getDate() - 7); return d >= week; }).length} new this week`} icon={<Users className="w-5 h-5" />} />
+        <StatCard title="My Records" value={myRecords.length} subtitle="Created by you" icon={<FileText className="w-5 h-5" />} />
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground tracking-tight">Recent Patients</h2>
-        <div className="flex gap-3">
-          <Link to="/staff/patients/create">
-            <Button size="default" className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-95">
-              <Plus className="w-4 h-4 mr-2" />New Patient
-            </Button>
-          </Link>
-          <Link to="/staff/records/create">
-            <Button size="default" variant="outline" className="rounded-xl glass-card hover:bg-white/10 transition-all active:scale-95">
-              <Plus className="w-4 h-4 mr-2" />New Record
-            </Button>
-          </Link>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-medium text-foreground">Recent Patients</h2>
+        <div className="flex gap-2">
+          <Link to="/staff/patients/create"><Button size="sm"><Plus className="w-4 h-4 mr-1" />New Patient</Button></Link>
+          <Link to="/staff/records/create"><Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-1" />New Record</Button></Link>
         </div>
       </div>
       <DataTable
