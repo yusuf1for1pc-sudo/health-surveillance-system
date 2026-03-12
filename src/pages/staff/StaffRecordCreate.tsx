@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
@@ -107,6 +107,8 @@ const StaffRecordCreate = () => {
   const isPatientLocked = !!searchParams.get("patientId");
   const [submitting, setSubmitting] = useState(false);
   const [patientOpen, setPatientOpen] = useState(false);
+  const patientDropdownRef = useRef<HTMLDivElement>(null);
+  const icdDropdownRef = useRef<HTMLDivElement>(null);
 
   // Pre-select patient from URL param (e.g. navigated from patient detail page)
   useEffect(() => {
@@ -119,6 +121,20 @@ const StaffRecordCreate = () => {
     }
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (patientDropdownRef.current && !patientDropdownRef.current.contains(e.target as Node)) {
+        setPatientOpen(false);
+      }
+      if (icdDropdownRef.current && !icdDropdownRef.current.contains(e.target as Node)) {
+        setIcdOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // AI Diagnosis
@@ -338,7 +354,7 @@ const StaffRecordCreate = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* Patient Search */}
-          <div className="relative">
+          <div className="relative" ref={patientDropdownRef}>
             <Label>Patient</Label>
             {isPatientLocked && selectedPatient ? (
               /* Read-only chip shown when patient was pre-selected from a scan or detail page */
@@ -655,7 +671,7 @@ const StaffRecordCreate = () => {
 
           {/* ICD Code Selector */}
           {type !== "Lab Report" && (
-            <div className="relative">
+            <div className="relative" ref={icdDropdownRef}>
               <Label>ICD Code</Label>
               <div className="relative mt-1.5">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
