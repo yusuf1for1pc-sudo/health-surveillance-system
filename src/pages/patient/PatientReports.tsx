@@ -3,10 +3,12 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import DataTable from "@/components/dashboard/DataTable";
 import { useData } from "@/contexts/DataContext";
+import { useTranslation } from "react-i18next";
 
 const PatientReports = () => {
   const navigate = useNavigate();
   const { records } = useData();
+  const { t } = useTranslation();
 
   const labReports = records
     .filter(r => r.record_type === "Lab Report")
@@ -20,9 +22,9 @@ const PatientReports = () => {
 
   return (
     <DashboardLayout role="patient">
-      <PageHeader title="Lab Reports" description="Your laboratory test results" />
+      <PageHeader title={t("reports_title")} description={t("reports_desc")} />
       {labReports.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No lab reports yet.</p>
+        <p className="text-sm text-muted-foreground">{t("no_reports")}</p>
       ) : (
         <DataTable
           columns={[

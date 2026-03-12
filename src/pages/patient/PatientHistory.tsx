@@ -2,10 +2,12 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { useData } from "@/contexts/DataContext";
+import { useTranslation } from "react-i18next";
 
 const PatientHistory = () => {
   const navigate = useNavigate();
   const { records } = useData();
+  const { t } = useTranslation();
 
   const timelineItems = records.map(r => ({
     id: r.id,
@@ -13,14 +15,14 @@ const PatientHistory = () => {
     type: r.record_type,
     title: r.title,
     doctor: r.creator_name,
-    description: r.description || r.diagnosis || "No details available.",
+    description: r.description || r.diagnosis || t("no_details"),
   }));
 
   return (
     <DashboardLayout role="patient">
-      <PageHeader title="Medical History" description="Your complete health timeline" />
+      <PageHeader title={t("history_title")} description={t("history_desc")} />
       {timelineItems.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No medical history yet.</p>
+        <p className="text-sm text-muted-foreground">{t("no_history")}</p>
       ) : (
         <div className="relative">
           <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
@@ -35,7 +37,7 @@ const PatientHistory = () => {
                   </div>
                   <h3 className="font-medium text-foreground">{item.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
-                  <p className="text-xs text-muted-foreground mt-2">By {item.doctor}</p>
+                  <p className="text-xs text-muted-foreground mt-2">{t("by")} {item.doctor}</p>
                 </div>
               </div>
             ))}

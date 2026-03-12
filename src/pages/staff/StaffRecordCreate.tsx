@@ -153,6 +153,7 @@ const StaffRecordCreate = () => {
   const [extractedData, setExtractedData] = useState<ExtractedMedicalData | null>(null);
   const [showExtractionReview, setShowExtractionReview] = useState(false);
   const [editingExtracted, setEditingExtracted] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   // Determine if secondary fields (Title, Description, ICD, Save button) should be shown
   const showSecondaryFields = type !== "Lab Report" || labEntryMode === "manual";
@@ -308,13 +309,36 @@ const StaffRecordCreate = () => {
       }));
 
       // Send image directly to Groq Vision – no OCR library needed!
-      const { panels: panelsFound, rawText } = await extractLabDataFromImage(selectedFile, schema);      clearInterval(progressInterval);
+      const { panels: panelsFound, rawText, analysis, patient_name, test_name } = await extractLabDataFromImage(selectedFile, schema) as any;
+      clearInterval(progressInterval);
       setExtractionProgress(100);
 
+      // ─── AI Patient Matching ───
+      if (patient_name && (!selectedPatient || isPatientLocked)) {
+        const q = patient_name.toLowerCase();
+        const matched = patients.find(p => 
+          p.full_name.toLowerCase().includes(q) || 
+          q.includes(p.full_name.toLowerCase())
+        );
+        if (matched) {
+          setSelectedPatient(matched);
+          toast.success(`Matched Patient: ${matched.full_name}`, {
+            description: "AI identified the patient name on the report.",
+            duration: 5000,
+          });
+        }
+      }
+
+      // ─── AI Title Generation ───
+      if (test_name && !title) {
+        setTitle(test_name);
+      }
+
       // Build a clean, human-readable description from the extracted panel values
-      const buildDescription = (panels: typeof panelsFound): string => {
-        if (panels.length === 0) return '';
+      const buildDescription = (panels: typeof panelsFound, analysisStr?: string): string => {
+        if (panels.length === 0 && !analysisStr) return '';
         const lines: string[] = [];
+        
         for (const panel of panels) {
           const panelDef = TEST_PANELS.find(p => p.id === panel.panelId);
           if (!panelDef) continue;
@@ -330,12 +354,19 @@ const StaffRecordCreate = () => {
           }
           lines.push(''); // blank line between panels
         }
+        
+        if (analysisStr) {
+          lines.push(`━━━ CLINICAL ANALYSIS ━━━`);
+          lines.push(analysisStr);
+        }
+        
         return lines.join('\n').trim();
       };
 
-      const formattedDescription = buildDescription(panelsFound);
+      const formattedDescription = buildDescription(panelsFound, analysis);
       if (formattedDescription.length > 0) {
         setDescription(formattedDescription);
+        setLabNotes(formattedDescription);
       }
       // Store the raw Groq text for the "Extracted Raw Text" box (used for debugging)
       setRawOcrText(rawText);
@@ -345,7 +376,8 @@ const StaffRecordCreate = () => {
           setLabPanels(panelsFound);
           toast.success(`Extracted ${panelsFound.length} panel(s) — values & description filled!`);
           setExtracting(false);
-          setLabEntryMode("manual"); // Auto-switch to manual mode to review accepted panels
+          // Auto-switching disabled so user can view the extracted Description box
+          // setLabEntryMode("manual");
         }, 400);
       } else {
         toast.info("Raw extracted text has been placed in the description field below.");
@@ -383,12 +415,20 @@ const StaffRecordCreate = () => {
     return parts.join(", ");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPatient) return;
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedPatient) {
+      toast.error("Please select a patient first.");
+      return;
+    }
 
     if (!user) {
       toast.error("User session not ready. Please refresh or sign in again.");
+      return;
+    }
+
+    if (!user.organization_id) {
+      toast.error("Your account is not associated with an organization. Please contact an administrator.");
       return;
     }
 
@@ -835,6 +875,71 @@ const StaffRecordCreate = () => {
                       <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">{rawOcrText}</pre>
                     </div>
                     <p className="text-xs text-muted-foreground italic">This is the raw text our scanner read from your image. If values are missing, try uploading a higher-resolution version of the report.</p>
+                  </div>
+                )}
+                
+                {/* Formatted Description & Analysis Box */}
+                {description && !extracting && (
+                  <div className="mt-6 border-2 border-primary/20 rounded-xl bg-primary/5 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+                    <div className="bg-primary/10 px-4 py-3 border-b border-primary/20 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-primary" />
+                        <h3 className="font-bold text-primary">AI Description & Clinical Analysis</h3>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsEditingDescription(!isEditingDescription)}
+                        className="h-8 text-xs font-bold text-primary hover:bg-primary/10 border border-primary/20"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                        {isEditingDescription ? "Done" : "Edit"}
+                      </Button>
+                    </div>
+                    <div className="p-5">
+                      {isEditingDescription ? (
+                        <Textarea
+                          value={description}
+                          onChange={(e) => {
+                            setDescription(e.target.value);
+                            setLabNotes(e.target.value);
+                          }}
+                          className="min-h-[200px] text-sm font-mono leading-relaxed bg-background"
+                        />
+                      ) : (
+                        <pre className="text-sm text-slate-800 font-mono whitespace-pre-wrap leading-relaxed">
+                          {description}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Direct Save Button for AI Flow */}
+                {labEntryMode === "ai" && description && !extracting && (
+                  <div className="pt-4 flex flex-col items-end gap-2">
+                    {!selectedPatient && (
+                      <p className="text-xs text-amber-600 font-medium animate-pulse flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Please select a patient at the top to enable saving
+                      </p>
+                    )}
+                    <Button 
+                      type="button" 
+                      disabled={submitting} // Removed !selectedPatient so it's clickable for feedback
+                      onClick={handleSubmit}
+                      className={`h-12 px-8 rounded-xl font-bold transition-all gap-2 shadow-xl ${
+                        !selectedPatient 
+                          ? "bg-slate-300 text-slate-500 cursor-not-allowed opacity-70" 
+                          : "bg-primary text-white shadow-primary/25 hover:shadow-primary/40 active:scale-95"
+                      }`}
+                    >
+                      {submitting ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> Saving...</>
+                      ) : (
+                        <><Check className="w-5 h-5" /> Save Record to Patient</>
+                      )}
+                    </Button>
                   </div>
                 )}
               </div>

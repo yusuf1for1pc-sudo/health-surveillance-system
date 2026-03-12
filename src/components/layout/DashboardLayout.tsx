@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkHealth } from "@/lib/mlApi";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface NavItem {
   label: string;
@@ -231,6 +232,8 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
           <div className="text-sm text-muted-foreground">
             {roleLabels[role]} Portal
           </div>
+          <div className="flex-1" />
+          {role === 'patient' && <LanguageSwitcher />}
         </header>
 
         {(role === "gov" || role === "admin") && <ApiHealthBanner />}
