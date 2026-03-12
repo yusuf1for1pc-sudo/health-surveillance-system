@@ -91,7 +91,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
             // Build queries based on role
             let patientsQuery = supabase.from('patients').select('id, patient_id, full_name, email, phone, gender, date_of_birth, blood_type, allergies, city, state, country, pincode, ward_name, latitude, longitude, status, created_by, organization_id, created_at, updated_at').order('created_at', { ascending: false });
-            let recordsQuery = supabase.from('medical_records').select('id, patient_id, record_type, title, diagnosis, icd_code, icd_label, description, attachment_url, attachment_name, created_by, creator_name, organization_id, created_at, updated_at').order('created_at', { ascending: false });
+            let recordsQuery = supabase.from('medical_records').select('id, patient_id, record_type, title, diagnosis, icd_code, icd_label, description, attachment_url, attachment_name, created_by, creator_name, organization_id, status, created_at, updated_at').order('created_at', { ascending: false });
 
             // For patient role, only fetch their own data
             if (user.role === 'patient') {

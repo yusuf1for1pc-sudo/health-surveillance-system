@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, startOfMonth, parseISO } from 'date-fns';
 import { TrendingUp, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface MedicalRecord {
     id: string;
@@ -41,6 +42,7 @@ const COLORS = [
 const OUTBREAK_THRESHOLD = 2.0; // 100% increase over baseline
 
 export default function TrendChart({ records, title = "Disease Trends & Spikes" }: TrendChartProps) {
+    const { toast } = useToast();
     const [period, setPeriod] = useState<'weekly' | 'monthly'>('monthly');
     const MA_WINDOW = 3;
 
@@ -155,6 +157,43 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
         );
     }, 0);
 
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-slate-200">
+                    <p className="font-bold text-slate-800 mb-3 pb-2 border-b border-slate-100">{label}</p>
+                    <div className="space-y-2">
+                        {payload.map((entry: any, index: number) => {
+                            const isMA = entry.name.includes('_MA');
+                            const isSpike = entry.name.includes('_Spike');
+                            
+                            if (isMA || isSpike) return null; // Hide moving average and spike extra rows from tooltip
+
+                            // Determine if there's a spike for this disease in this period
+                            const hasSpike = payload.find((p: any) => p.name === `${entry.name}_Spike`);
+
+                            return (
+                                <div key={`item-${index}`} className="flex items-center justify-between gap-6 text-sm">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
+                                        <span className="text-slate-700 font-medium">{entry.name}</span>
+                                        {hasSpike && (
+                                            <AlertTriangle className="w-4 h-4 text-red-500 ml-1 drop-shadow-sm" />
+                                        )}
+                                    </div>
+                                    <span className="font-bold" style={{ color: entry.color }}>
+                                        {entry.value}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -171,6 +210,18 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                     <CardDescription>
                         Moving averages ({MA_WINDOW}-period) and anomaly detection {period === 'weekly' ? '(Last 4 Weeks)' : ''}
                     </CardDescription>
+                    
+                    {/* Custom Line Style Legend (Top Left) */}
+                    <div className="flex flex-col mt-4 space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium tracking-wide uppercase">
+                            <div className="w-6 border-b-[2px] border-dashed border-slate-400"></div>
+                            <span>{MA_WINDOW}-Period Average</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium tracking-wide uppercase">
+                            <div className="w-6 border-b-[2px] border-solid border-slate-400"></div>
+                            <span>Actual Cases</span>
+                        </div>
+                    </div>
                 </div>
                 <div className="flex bg-muted rounded-lg p-1">
                     <Button
@@ -210,15 +261,23 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                 label={{ value: 'Cases', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
                             />
                             <Tooltip
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '0.5rem' }}
-                                formatter={(value: number, name: string) => {
-                                    if (name.includes('_MA')) return [value.toFixed(1), `${name.replace('_MA', '')} (Avg)`];
-                                    if (name.includes('_Spike')) return [value, `${name.replace('_Spike', '')} ⚠️ ALERT`];
-                                    return [value, name];
-                                }}
+                                content={<CustomTooltip />}
+                                cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                             />
-                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                            
+                            {/* Main Disease Legend */}
+                            <Legend 
+                                wrapperStyle={{ paddingTop: '20px' }} 
+                                payload={[
+                                    // Only show the specific disease colors
+                                    ...topDiseases.map((disease, idx) => ({
+                                        value: disease,
+                                        type: 'circle' as const,
+                                        id: disease,
+                                        color: COLORS[idx % COLORS.length]
+                                    }))
+                                ]}
+                            />
 
                             {topDiseases.map((disease, idx) => (
                                 <Line
@@ -253,10 +312,23 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                     key={`${disease}_Spike`}
                                     dataKey={`${disease}_Spike`}
                                     fill="red"
+                                    onClick={(data) => {
+                                        if (data && data.payload) {
+                                            toast({
+                                                title: `Outbreak Detected: ${disease}`,
+                                                description: `${data.payload[`${disease}_Spike`]} massive cases reported in ${data.payload.displayDate}.`,
+                                                variant: "destructive",
+                                            });
+                                        }
+                                    }}
+                                    className="cursor-pointer"
                                     shape={(props: any) => {
-                                        const { cx, cy } = props;
+                                        const { cx, cy, payload } = props;
+                                        // Only draw the alert if there's an actual spike value for this disease
+                                        if (!payload || !payload[`${disease}_Spike`]) return <path d="" />; 
+                                        
                                         return (
-                                            <svg x={cx - 10} y={cy - 10} width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="red" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg x={cx - 10} y={cy - 10} width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="red" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_2px_4px_rgba(255,0,0,0.5)] hover:scale-125 transition-transform duration-200 cursor-pointer outline-none">
                                                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                                                 <line x1="12" y1="9" x2="12" y2="13" />
                                                 <line x1="12" y1="17" x2="12.01" y2="17" />

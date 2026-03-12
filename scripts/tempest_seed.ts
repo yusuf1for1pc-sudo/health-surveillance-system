@@ -75,7 +75,7 @@ function getLeptospirosisWard(patients: any[], patientMapByWard: Record<string, 
 
 async function generateAndSeed() {
     console.log('Fetching existing patients and reference data...');
-    const { data: patients, error: pError } = await supabase.from('patients').select('id, ward_name, city, created_by, organization_id');
+    const { data: patients, error: pError } = await supabase.from('patients').select('id, ward_name, city, created_by, organization_id, date_of_birth');
     if (pError || !patients) { console.error('Error fetching patients:', pError); return; }
 
     const defaultOrg = { id: '057935f0-817b-4c40-862c-7b44ecfb1eaf' };
@@ -145,18 +145,43 @@ async function generateAndSeed() {
         }
     }
 
-    const syndromicCount = 20;
+    const syndromicCount = 15;
+    
+    // Mathematically filter patients for high-susceptibility Dengue demographics in Nerul
+    let nerulPts = patientMapByWard['Nerul'] || [];
+    if (nerulPts.length === 0) {
+        // Fallback to all Navi Mumbai if Nerul is entirely empty somehow
+        nerulPts = patients.filter(p => p.city === 'Navi Mumbai') || [];
+    }
+    
+    // Calculate current date to find ages
+    const now = new Date();
+    const susceptiblePts = nerulPts.length > 0 ? nerulPts.filter(p => {
+        if (!p.date_of_birth) return true; // keep if unknown
+        const dob = new Date(p.date_of_birth);
+        const age = now.getFullYear() - dob.getFullYear();
+        // Target 5-15 (school kids) and 20-45 (active adults)
+        return (age >= 5 && age <= 15) || (age >= 20 && age <= 45);
+    }) : patients.filter(p => {
+        if (!p.date_of_birth) return true; // keep if unknown
+        const dob = new Date(p.date_of_birth);
+        const age = now.getFullYear() - dob.getFullYear();
+        return (age >= 5 && age <= 15) || (age >= 20 && age <= 45);
+    });
+
     for (let i = 0; i < syndromicCount; i++) {
-        const pts = patientMapByWard['Wadala'] || patients;
-        if (!pts || pts.length === 0) continue;
-        const p = pts[Math.floor(Math.random() * pts.length)];
+        // Fallback to general pool if the strict demographic filter yields no one
+        const ptsPool = susceptiblePts.length > 0 ? susceptiblePts : (nerulPts || patients);
+        if (!ptsPool || ptsPool.length === 0) continue;
+        
+        const p = ptsPool[Math.floor(Math.random() * ptsPool.length)];
         const date = new Date(2026, 2, Math.floor(Math.random() * 4) + 7); // Mar 7 to Mar 10
         newRecords.push({
             id: randomUUID(),
             patient_id: p.id,
             record_type: 'Clinical Note',
             title: 'Initial Evaluation (Syndromic)',
-            description: `Patient complains of sudden high fever, red eyes, and muscle aches (suspected leptospirosis). Pending lab confirmation.`,
+            description: `Patient presents with acute high-grade fever (103°F), severe frontal headache, prominent retro-orbital pain (pain behind the eyes), and intense myalgia/arthralgia ('breakbone fever'). Mild petechial rash appearing on extremities. Suspected Dengue Fever; pending NS1 antigen and IgG/IgM lab confirmation.`,
             diagnosis: null,
             icd_code: null,
             icd_label: null,
@@ -190,4 +215,6 @@ async function generateAndSeed() {
     console.log('Successfully completed tempest dataset migration!');
 }
 
-generateAndSeed();
+generateAndSeed().catch(e => {
+    console.error("SEVERE ERROR:", e);
+});

@@ -1,8 +1,26 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { AlertTriangle, Send, Loader2, Info } from "lucide-react";
+import { AlertTriangle, Send, Loader2, Info, Building2, MapPin, Users, Mail, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getAnomalies, getRValue } from "@/lib/mlApi";
 import type { AnomaliesResponse, RValueResponse } from "@/lib/mlApi";
 import { logSurveillanceAccess } from "@/lib/accessLogger";
@@ -12,6 +30,16 @@ const GovAlerts = () => {
   const [anomalies, setAnomalies] = useState<AnomaliesResponse | null>(null);
   const [rValue, setRValue] = useState<RValueResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Dialog State
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    state: "",
+    municipal: "",
+    city: "",
+    email: "",
+  });
 
   useEffect(() => {
     setLoading(true);
@@ -80,10 +108,20 @@ const GovAlerts = () => {
   // Sort alerts by date, newest first
   alerts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const handleSend = (id: string, type: string, disease: string, severity: string) => {
-    setSentIds((prev) => new Set([...prev, id]));
+  const handleOpenDialog = (alert: any) => {
+    setSelectedAlert(alert);
+    setIsDialogOpen(true);
+    // Reset form
+    setFormData({ state: "", municipal: "", city: "", email: "" });
+  };
 
-    const isHigh = severity === "HIGH";
+  const handleSend = () => {
+    if (!selectedAlert) return;
+    
+    setSentIds((prev) => new Set([...prev, selectedAlert.id]));
+    setIsDialogOpen(false);
+
+    const isHigh = selectedAlert.severity === "HIGH";
     const containerClasses = isHigh
       ? "bg-red-600 border-red-700 shadow-xl text-white"
       : "bg-amber-50 border-amber-200 shadow-lg text-amber-900";
@@ -100,8 +138,8 @@ const GovAlerts = () => {
         </div>
         <p className={cn("text-xs pl-8 leading-snug opacity-95", descTextClass)}>
           {isHigh
-            ? `Emergency notification sent to all health officials: ${type} — ${disease}`
-            : `Advisory dispatched: ${type} — ${disease}`}
+            ? `Emergency notification sent to designated authorities: ${selectedAlert.type} — ${selectedAlert.disease}`
+            : `Advisory dispatched: ${selectedAlert.type} — ${selectedAlert.disease}`}
         </p>
       </div>
     ), { duration: 4000 });
@@ -182,7 +220,7 @@ const GovAlerts = () => {
                     🕒 Detected: {alert.date}
                   </span>
                   <button
-                    onClick={() => handleSend(alert.id, alert.type, alert.disease, alert.severity)}
+                    onClick={() => handleOpenDialog(alert)}
                     disabled={sentIds.has(alert.id)}
                     className={cn(
                       "flex items-center gap-2 px-5 py-2 rounded-md text-xs font-bold transition-all shadow-sm active:scale-95",
@@ -201,6 +239,126 @@ const GovAlerts = () => {
             ))
           )}
         </div>
+
+        {/* Broadcast Alert Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-indigo-600" />
+                Broadcast Alert
+              </DialogTitle>
+              <DialogDescription>
+                Distribute this {selectedAlert?.severity === 'HIGH' ? 'emergency alert' : 'advisory'} to targeted authorities and users.
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedAlert && (
+              <div className="mb-4 p-3 bg-slate-50 border rounded-lg flex items-start gap-3">
+                <AlertTriangle className={cn("h-5 w-5 mt-0.5 shrink-0", selectedAlert.iconColor)} />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-800">{selectedAlert.type}: {selectedAlert.disease}</p>
+                  <p className="text-xs text-slate-500 line-clamp-2">{selectedAlert.message}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-6 py-2">
+              {/* Higher Authorities */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 border-b pb-2">
+                  <Building2 className="h-4 w-4 text-slate-500" />
+                  Higher Authorities
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="state" className="text-xs font-semibold text-slate-600">Select State</Label>
+                  <Select value={formData.state} onValueChange={(val) => setFormData({ ...formData, state: val })}>
+                    <SelectTrigger id="state" className="h-9">
+                      <SelectValue placeholder="e.g. Maharashtra, Delhi..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MH">Maharashtra</SelectItem>
+                      <SelectItem value="DL">Delhi</SelectItem>
+                      <SelectItem value="KA">Karnataka</SelectItem>
+                      <SelectItem value="TN">Tamil Nadu</SelectItem>
+                      <SelectItem value="UP">Uttar Pradesh</SelectItem>
+                      <SelectItem value="ALL">All States (Nationwide)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Local Authorities */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 border-b pb-2">
+                  <MapPin className="h-4 w-4 text-slate-500" />
+                  Local Authorities
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="municipal" className="text-xs font-semibold text-slate-600">Municipal Corporation</Label>
+                  <Select value={formData.municipal} onValueChange={(val) => setFormData({ ...formData, municipal: val })}>
+                    <SelectTrigger id="municipal" className="h-9">
+                      <SelectValue placeholder="e.g. BMC, NDMC..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BMC">Brihanmumbai Municipal Corporation (BMC)</SelectItem>
+                      <SelectItem value="NDMC">New Delhi Municipal Council (NDMC)</SelectItem>
+                      <SelectItem value="BBMP">Bruhat Bengaluru Mahanagara Palike (BBMP)</SelectItem>
+                      <SelectItem value="GCC">Greater Chennai Corporation (GCC)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Users & Citizens */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 border-b pb-2">
+                  <Users className="h-4 w-4 text-slate-500" />
+                  Citizens & Users
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="city" className="text-xs font-semibold text-slate-600">Target City (Public Broadcast)</Label>
+                  <Input 
+                    id="city" 
+                    placeholder="Enter city names to broadcast (e.g. Mumbai, Pune)" 
+                    className="h-9"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Manual Email */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 border-b pb-2">
+                  <Mail className="h-4 w-4 text-slate-500" />
+                  Direct Contact
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="email" className="text-xs font-semibold text-slate-600">Manual Email ID</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="Enter specific email address" 
+                    className="h-9"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6 md:justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSend} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Dispatch Alert
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

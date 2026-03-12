@@ -84,6 +84,17 @@ export interface MedicalRecord {
     organization_id: string;
     created_at: string;
     updated_at: string;
+    // Joined geographic fields for surveillance
+    city?: string | null;
+    state?: string | null;
+    ward_name?: string | null;
+    pincode?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    // Extended fields
+    status?: 'ACTIVE' | 'RECOVERED' | 'REFERRED' | 'DECEASED';
+    resolved_at?: string | null;
+    notes?: string | null;
 }
 
 // ─── Certificate ─────────────────────────────────────────

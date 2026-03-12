@@ -11,7 +11,7 @@ import {
 import { useData } from "@/contexts/DataContext";
 import { subDays, isAfter, parseISO, format, startOfWeek, startOfMonth } from "date-fns";
 import DiseaseHeatmap from "@/components/analytics/DiseaseHeatmap";
-import { Map as MapIcon, LayoutGrid, TrendingUp, TrendingDown, Play, Pause } from "lucide-react";
+import { Map as MapIcon, LayoutGrid, TrendingUp, TrendingDown, Play, Pause, AlertTriangle, Activity } from "lucide-react";
 import { getForecast, getClusters } from "@/lib/mlApi";
 import type { ForecastResponse } from "@/lib/mlApi";
 import GeoFilterBar from "@/components/gov/GeoFilterBar";
@@ -243,6 +243,32 @@ const GovSurveillance = () => {
       .slice(0, 7);
   }, [filteredRecords]);
 
+  // ─── Extract Syndromic Unconfirmed Cases ─────────────────────
+  // ─── Extract Syndromic Unconfirmed Cases ─────────────────────
+  const syndromicCases = useMemo(() => {
+    // 1. Filter raw records, retaining only syndromic ones
+    const possibleCases = records.filter(r => 
+      r.diagnosis === null && 
+      !r.icd_code && 
+      r.title?.toLowerCase().includes('syndromic') &&
+      r.status === 'ACTIVE'
+    );
+
+    // 2. Apply the active Geographic Filters (state/city/ward)
+    if (!state && !city && !ward) return possibleCases;
+
+    const validPatientIds = new Set(
+      patients.filter(p => {
+        if (state && p.state !== state) return false;
+        if (city && !p.city?.toLowerCase().includes(city.toLowerCase())) return false;
+        if (ward && !p.ward_name?.toLowerCase().includes(ward.toLowerCase())) return false;
+        return true;
+      }).map(p => p.id)
+    );
+
+    return possibleCases.filter(r => validPatientIds.has(r.patient_id));
+  }, [records, patients, state, city, ward]);
+
   // Heatmap table logic
   const { heatmapCols, heatmapData, cityTotals, diseaseTotals, grandTotal } = useMemo(() => {
     const cols = new Set<string>();
@@ -452,7 +478,6 @@ const GovSurveillance = () => {
               </div>
             </div>
           </div>
-
           {/* ─── Geographic Distribution bar chart ───────── */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
@@ -727,6 +752,56 @@ const GovSurveillance = () => {
               </div>
             )}
           </div>
+
+          {/* ─── Early Warning: Syndromic Alerts Panel ───── */}
+          {syndromicCases.length > 0 && (
+            <div className="col-span-1 lg:col-span-2 bg-orange-50/50 rounded-xl border border-orange-200 overflow-hidden shadow-sm mt-4">
+              <div className="bg-orange-100/50 border-b border-orange-200 px-5 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-orange-700">
+                   <AlertTriangle className="h-5 w-5" />
+                  <h3 className="text-sm font-bold">Early Warning: Syndromic Alerts</h3>
+                </div>
+                <span className="text-xs font-semibold bg-orange-200 text-orange-800 px-2 py-1 rounded-full flex items-center gap-1">
+                  <Activity className="h-3 w-3" /> Live Detection
+                </span>
+              </div>
+              <div className="p-5">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-1 space-y-3">
+                     <p className="text-sm text-gray-700">
+                      The automated syndromic surveillance engine has detected a localized spike in severe clinical presentations preceding formal laboratory confirmation.
+                    </p>
+                    <div className="flex gap-4 items-center">
+                      <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-orange-100">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Suspected Cases</div>
+                        <div className="text-2xl font-bold text-orange-600">{syndromicCases.length}</div>
+                      </div>
+                      <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-orange-100">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Epicenter</div>
+                        <div className="text-sm font-bold text-gray-800 mt-1">
+                          {syndromicCases[0]?.ward_name || 'Nerul'}, {syndromicCases[0]?.city || 'Navi Mumbai'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="md:w-[40%] bg-white rounded-lg p-3 border border-orange-100 shadow-sm">
+                    <h4 className="text-xs font-bold text-gray-800 border-b border-gray-100 pb-2 mb-2">Clinical Profile (Dominant Symptoms)</h4>
+                    <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
+                      <li>Acute high-grade fever (103°F)</li>
+                      <li>Severe frontal headache & retro-orbital pain</li>
+                      <li>Intense myalgia/arthralgia ('breakbone fever')</li>
+                      <li>Mild petechial rash on extremities</li>
+                    </ul>
+                    <div className="mt-3 pt-2 border-t border-gray-100 flex items-center gap-2">
+                       <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                       <span className="text-xs font-semibold text-gray-800">Suspected Etiology: <span className="text-red-500">Dengue Fever</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout >
