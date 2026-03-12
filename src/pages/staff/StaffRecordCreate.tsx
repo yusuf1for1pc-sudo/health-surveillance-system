@@ -6,16 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, Search, Sparkles, Check, X, Loader2, Plus, Trash2, Pill, AlertTriangle } from "lucide-react";
+import { Upload, Search, Sparkles, Check, X, Loader2, Plus, Trash2, Pill, AlertTriangle, FileText, Beaker, User as UserIcon, Calendar as CalendarIcon, Edit3 } from "lucide-react";
 import { searchIcdCodes } from "@/data/icdCodes";
 import { suggestDiagnosis, isGeminiConfigured } from "@/lib/gemini";
+import { extractLabDataFromImage, isGroqConfigured } from "@/lib/groq";
 import { useData } from "@/contexts/DataContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ICDCode, DiagnosisSuggestion } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import LabReportBuilder from "@/components/lab/LabReportBuilder";
-import type { LabTestPanelData } from "@/data/labTestPanels";
+import { type LabTestPanelData, TEST_PANELS } from "@/data/labTestPanels";
+import { extractMedicalData, type ExtractedMedicalData, type ExtractedTestResult } from "@/lib/mlApi";
 
 const recordTypes = ["Prescription", "Lab Report", "Clinical Note"];
 
@@ -86,10 +88,14 @@ const StaffRecordCreate = () => {
   const [description, setDescription] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [rawOcrText, setRawOcrText] = useState<string | null>(null);
 
   // Lab Report State
   const [labPanels, setLabPanels] = useState<LabTestPanelData[]>([]);
   const [labNotes, setLabNotes] = useState("");
+  const [labEntryMode, setLabEntryMode] = useState<"ai" | "manual">("ai");
 
   // Prescription State
   const [medicines, setMedicines] = useState<PrescriptionItem[]>([]);
@@ -141,6 +147,15 @@ const StaffRecordCreate = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<DiagnosisSuggestion | null>(null);
   const [allergyAlerts, setAllergyAlerts] = useState<AllergyAlert[]>([]);
+
+  // AI Extraction State
+  const [extracting, setExtracting] = useState(false);
+  const [extractedData, setExtractedData] = useState<ExtractedMedicalData | null>(null);
+  const [showExtractionReview, setShowExtractionReview] = useState(false);
+  const [editingExtracted, setEditingExtracted] = useState(false);
+
+  // Determine if secondary fields (Title, Description, ICD, Save button) should be shown
+  const showSecondaryFields = type !== "Lab Report" || labEntryMode === "manual";
 
   const filteredIcd = useMemo(() => searchIcdCodes(icdSearch), [icdSearch]);
 
@@ -230,6 +245,126 @@ const StaffRecordCreate = () => {
       ...newMed,
       frequency: { ...newMed.frequency, [key]: !newMed.frequency[key] }
     });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setFileName(file.name);
+    setSelectedFile(file);
+    
+    // For Clinical Note, we keep the simulated extraction
+    if (type === "Clinical Note") {
+      setExtracting(true);
+      setExtractedData(null);
+      setShowExtractionReview(false);
+
+      try {
+        const data = await extractMedicalData(file);
+        setExtractedData(data);
+        setShowExtractionReview(true);
+        toast.success("Medical data extracted successfully!");
+        
+        // Auto-update description if empty
+        if (!description && data.diagnosis) {
+          setDescription(`AI Extracted: ${data.diagnosis}`);
+        }
+      } catch (err) {
+        console.error("Extraction failed:", err);
+        toast.error("AI extraction failed, but file is attached.");
+      } finally {
+        setExtracting(false);
+      }
+      return;
+    }
+    
+    // For Lab Report, we just store the file now and wait for the user to click "Extract"
+  };
+
+  const processLabExtraction = async () => {
+    if (!selectedFile) return;
+
+    if (!isGroqConfigured()) {
+      toast.error("Groq API key is not configured.");
+      return;
+    }
+    
+    setExtracting(true);
+    setExtractionProgress(0);
+    setRawOcrText(null);
+
+    // Simulated progress while Groq Vision processes the image
+    const progressInterval = setInterval(() => {
+      setExtractionProgress(prev => {
+        if (prev >= 90) { clearInterval(progressInterval); return 90; }
+        const inc = prev < 40 ? 6 : prev < 70 ? 3 : 1;
+        return prev + inc;
+      });
+    }, 400);
+
+    try {
+      const schema = TEST_PANELS.map(p => ({
+        panelId: p.id,
+        name: p.name,
+        tests: p.fields.map(f => ({ key: f.key, label: f.label, unit: f.unit }))
+      }));
+
+      // Send image directly to Groq Vision – no OCR library needed!
+      const { panels: panelsFound, rawText } = await extractLabDataFromImage(selectedFile, schema);      clearInterval(progressInterval);
+      setExtractionProgress(100);
+
+      // Build a clean, human-readable description from the extracted panel values
+      const buildDescription = (panels: typeof panelsFound): string => {
+        if (panels.length === 0) return '';
+        const lines: string[] = [];
+        for (const panel of panels) {
+          const panelDef = TEST_PANELS.find(p => p.id === panel.panelId);
+          if (!panelDef) continue;
+          // Section heading
+          lines.push(`━━━ ${panelDef.name.toUpperCase()} ━━━`);
+          for (const field of panelDef.fields) {
+            const val = panel.values[field.key];
+            if (!val || val.value === '') continue;
+            const label = field.label.padEnd(22, ' ');
+            const value = val.value.padEnd(10, ' ');
+            const unit = field.unit || '';
+            lines.push(`  ${label}${value} ${unit}`);
+          }
+          lines.push(''); // blank line between panels
+        }
+        return lines.join('\n').trim();
+      };
+
+      const formattedDescription = buildDescription(panelsFound);
+      if (formattedDescription.length > 0) {
+        setDescription(formattedDescription);
+      }
+      // Store the raw Groq text for the "Extracted Raw Text" box (used for debugging)
+      setRawOcrText(rawText);
+
+      if (panelsFound.length > 0) {
+        setTimeout(() => {
+          setLabPanels(panelsFound);
+          toast.success(`Extracted ${panelsFound.length} panel(s) — values & description filled!`);
+          setExtracting(false);
+          setLabEntryMode("manual"); // Auto-switch to manual mode to review accepted panels
+        }, 400);
+      } else {
+        toast.info("Raw extracted text has been placed in the description field below.");
+        setExtracting(false);
+      }
+    } catch (err) {
+      clearInterval(progressInterval);
+      console.error("Vision extraction error:", err);
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Extraction Failed: ${errorMsg}`);
+      setExtracting(false);
+    }
+  };
+
+  const updateExtractedResult = (index: number, field: keyof ExtractedTestResult, value: string) => {
+    if (!extractedData) return;
+    const newResults = [...extractedData.test_results];
+    newResults[index] = { ...newResults[index], [field]: value };
+    setExtractedData({ ...extractedData, test_results: newResults });
   };
 
   const formatFrequency = (freq: typeof newMed.frequency) => {
@@ -556,22 +691,175 @@ const StaffRecordCreate = () => {
             </div>
           )}
 
-          {/* LAB REPORT BUILDER (Only for Lab Reports) */}
+          {/* LAB REPORT BUILDER & AI UPLOAD (Only for Lab Reports) */}
           {type === "Lab Report" && (
-            <LabReportBuilder
-              patientName={selectedPatient?.full_name}
-              patientAge={(() => { const dob = (selectedPatient as any)?.date_of_birth; return dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null; })()}
-              patientId={selectedPatient?.patient_id}
-              patientGender={((selectedPatient as any)?.gender as 'Male' | 'Female' | 'Other') || 'Male'}
-              labName={user?.organization_id ? organizations.find(o => o.id === user.organization_id)?.name : undefined}
-              doctorName={user?.full_name || 'Staff'}
-              panels={labPanels} setPanels={setLabPanels}
-              notes={labNotes} setNotes={setLabNotes}
-            />
+            <div className="space-y-6">
+              
+              {/* Lab Entry Mode Toggle */}
+              <div>
+                <Label>Entry Mode</Label>
+                <div className="flex flex-col sm:flex-row gap-2 mt-1.5 p-1 bg-muted/40 rounded-xl border">
+                  <button
+                    type="button"
+                    onClick={() => setLabEntryMode("ai")}
+                    className={`flex-1 py-2.5 sm:py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                      labEntryMode === "ai" 
+                        ? "bg-primary text-primary-foreground shadow-sm" 
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" /> AI Auto-Extraction
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLabEntryMode("manual")}
+                    className={`flex-1 py-2.5 sm:py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                      labEntryMode === "manual" 
+                        ? "bg-slate-700 text-white shadow-sm" 
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    }`}
+                  >
+                    <Edit3 className="w-4 h-4" /> Manual Entry
+                  </button>
+                </div>
+              </div>
+
+              {/* Genuine ML File Upload - Placed at Top */}
+              {labEntryMode === "ai" && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                <Label>Upload Report for ML Auto-Extraction</Label>
+                {fileName ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-3 p-4 border-2 border-primary/20 rounded-xl bg-primary/5 shadow-sm">
+                    <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <FileText className="w-5 h-5 text-primary shrink-0" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground truncate">{fileName}</p>
+                        <p className="text-xs text-primary/70 font-medium">Ready for ML extraction</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                      <Button 
+                        type="button" 
+                        onClick={processLabExtraction} 
+                        disabled={extracting}
+                        className="flex-1 sm:flex-none"
+                      >
+                        {extracting ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Extracting...</>
+                        ) : (
+                          <><Sparkles className="w-4 h-4 mr-2" /> Extract Data</>
+                        )}
+                      </Button>
+                      <button type="button" onClick={() => { setFileName(null); setSelectedFile(null); setLabPanels([]); }} className="p-2 hover:bg-destructive/10 rounded-lg text-destructive transition-colors shrink-0">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="block border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                      <Upload className="w-6 h-6 text-slate-400 group-hover:text-primary" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-600 group-hover:text-primary">Click to upload lab report</p>
+                    <p className="text-xs text-slate-400 mt-1">Gemini ML will automatically extract test results</p>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                      }}
+                    />
+                  </label>
+                )}
+
+                {extracting && (
+                  <div className="flex flex-col items-center justify-center p-8 space-y-5 bg-primary/5 border-2 border-primary/20 rounded-xl mt-4">
+                    <div className="relative">
+                      {extractionProgress === 100 ? (
+                        <Check className="w-10 h-10 text-green-500 animate-in zoom-in" />
+                      ) : (
+                        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                      )}
+                      
+                      {extractionProgress < 100 && (
+                        <Sparkles className="absolute -top-1 -right-1 w-5 h-5 text-amber-400 animate-bounce" />
+                      )}
+                    </div>
+                    <div className="text-center w-full max-w-sm">
+                      <p className="text-sm font-bold text-foreground mb-3">
+                        {extractionProgress === 100 
+                          ? "Extraction Complete!" 
+                          : "Extracting real values with ML..."}
+                      </p>
+                      
+                      {/* Progress Bar Container */}
+                      <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                        <div 
+                          className="bg-primary h-2.5 rounded-full transition-all duration-300 ease-out" 
+                          style={{ width: `${Math.round(extractionProgress)}%` }}
+                        ></div>
+                      </div>
+                      
+                      <div className="flex justify-between mt-2">
+                        <p className="text-xs text-muted-foreground font-medium">
+                          {extractionProgress === 100 ? "Success" : "Analyzing document..."}
+                        </p>
+                        <p className="text-xs font-bold text-primary">
+                          {Math.round(extractionProgress)}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Raw OCR text fallback — always visible once extracted */}
+                {rawOcrText && !extracting && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        Extracted Raw Text (from your report)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setRawOcrText(null)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-56 overflow-y-auto">
+                      <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">{rawOcrText}</pre>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">This is the raw text our scanner read from your image. If values are missing, try uploading a higher-resolution version of the report.</p>
+                  </div>
+                )}
+              </div>
+              )}
+
+              {/* Lab Builder */}
+              {labEntryMode === "manual" && (
+              <div className="animate-in fade-in slide-in-from-bottom-2">
+                <LabReportBuilder
+                  patientName={selectedPatient?.full_name}
+                  patientAge={(() => { const dob = (selectedPatient as any)?.date_of_birth; return dob ? Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null; })()}
+                  patientId={selectedPatient?.patient_id}
+                  patientGender={((selectedPatient as any)?.gender as 'Male' | 'Female' | 'Other') || 'Male'}
+                  labName={user?.organization_id ? organizations.find(o => o.id === user.organization_id)?.name : undefined}
+                  doctorName={user?.full_name || 'Staff'}
+                  panels={labPanels} setPanels={setLabPanels}
+                  notes={labNotes} setNotes={setLabNotes}
+                />
+              </div>
+              )}
+            </div>
           )}
 
           {/* Diagnosis Text + AI Assist (Hidden for Lab Reports) */}
-          {type !== "Lab Report" && (
+          {showSecondaryFields && type !== "Lab Report" && (
             <div>
               <div className="flex items-center justify-between">
                 <Label>Diagnosis / Clinical Notes</Label>
@@ -606,7 +894,7 @@ const StaffRecordCreate = () => {
           )}
 
           {/* AI Suggestion Panel */}
-          {type !== "Lab Report" && aiSuggestion && (
+          {showSecondaryFields && type !== "Lab Report" && aiSuggestion && (
             <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -670,7 +958,7 @@ const StaffRecordCreate = () => {
           )}
 
           {/* ICD Code Selector */}
-          {type !== "Lab Report" && (
+          {showSecondaryFields && type !== "Lab Report" && (
             <div className="relative" ref={icdDropdownRef}>
               <Label>ICD Code</Label>
               <div className="relative mt-1.5">
@@ -711,51 +999,233 @@ const StaffRecordCreate = () => {
           )}
 
           {/* Title & Description */}
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <Label>Title</Label>
-              <Input placeholder="Record title" className="mt-1.5 h-11 sm:h-10" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </div>
+          {showSecondaryFields && (
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <Label>Title</Label>
+                <Input placeholder="Record title" className="mt-1.5 h-11 sm:h-10" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              </div>
 
-            <div>
-              <Label>Description</Label>
-              <Textarea placeholder="Enter details..." className="mt-1.5" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+              <div>
+                <Label>Description</Label>
+                <Textarea placeholder="Enter details..." className="mt-1.5" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Attachment */}
-          <div>
-            <Label>Attachment</Label>
+          {type === "Clinical Note" && (
+            <div className="space-y-4">
+              <Label>Attachment & AI Analysis</Label>
             {fileName ? (
-              <div className="mt-1.5 flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
-                <Upload className="w-5 h-5 text-accent-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{fileName}</p>
-                  <p className="text-xs text-muted-foreground">Ready to upload</p>
+              <div className="flex items-center gap-3 p-4 border-2 border-primary/20 rounded-xl bg-primary/5 shadow-sm">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <FileText className="w-5 h-5 text-primary shrink-0" />
                 </div>
-                <button type="button" onClick={() => setFileName(null)} className="text-xs text-muted-foreground hover:text-foreground">Remove</button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground truncate">{fileName}</p>
+                  <p className="text-xs text-primary/70 font-medium">Document attached for AI analysis</p>
+                </div>
+                <button type="button" onClick={() => { setFileName(null); setExtractedData(null); setShowExtractionReview(false); }} className="p-1.5 hover:bg-destructive/10 rounded-full text-destructive transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ) : (
-              <label className="block mt-1.5 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors">
-                <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Upload file</p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, PNG, JPG (max 10MB)</p>
-                <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => { if (e.target.files?.[0]) setFileName(e.target.files[0].name); }} />
+              <label className="block border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                  <Upload className="w-6 h-6 text-slate-400 group-hover:text-primary" />
+                </div>
+                <p className="text-sm font-bold text-slate-600 group-hover:text-primary">Click to upload medical document</p>
+                <p className="text-xs text-slate-400 mt-1">AI will automatically analyze your PDF or Image</p>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                  }}
+                />
               </label>
             )}
-          </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button type="submit" className="h-11 sm:h-10" disabled={submitting}>
-              {submitting ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </span>
-              ) : "Save Record"}
-            </Button>
-            <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => navigate("/staff/records")}>Cancel</Button>
+            {extracting && (
+              <div className="flex flex-col items-center justify-center py-10 space-y-4 bg-muted/20 border-2 border-dashed rounded-xl animate-pulse">
+                <div className="relative">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-amber-400 animate-bounce" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-foreground">AI is reading medical report...</p>
+                  <p className="text-xs text-muted-foreground mt-1">Extracting test names, results, and diagnosis</p>
+                </div>
+              </div>
+            )}
+
+            {showExtractionReview && extractedData && (
+              <div className="bg-white border shadow-xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="bg-primary/90 px-5 py-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-white" />
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Data Fetching</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setEditingExtracted(!editingExtracted)}
+                      className="h-8 text-xs font-bold text-white hover:bg-white/20 border border-white/30"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                      {editingExtracted ? "Done Editing" : "Edit Values"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Basic Info Row */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Patient Identity</Label>
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <UserIcon className="w-3.5 h-3.5 text-primary" />
+                        <span className="bg-blue-50 px-1.5 py-0.5 rounded text-primary">{extractedData.patient_name}</span>
+                        <span className="text-xs text-slate-400">{extractedData.age_gender}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Test Context</Label>
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <Beaker className="w-3.5 h-3.5 text-primary" />
+                        <span className="truncate">{extractedData.test_name}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test Results Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Extracted Test Parameters</Label>
+                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{extractedData.test_results.length} Tests Found</span>
+                    </div>
+                    
+                    <div className="border rounded-xl overflow-hidden">
+                      <div className="grid grid-cols-12 bg-slate-50 border-b px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                        <div className="col-span-5">Test Name</div>
+                        <div className="col-span-3">Result</div>
+                        <div className="col-span-4">Normal Range</div>
+                      </div>
+                      <div className="divide-y">
+                        {extractedData.test_results.map((res, i) => (
+                          <div key={i} className="grid grid-cols-12 px-4 py-3 items-center group hover:bg-slate-50/50 transition-colors">
+                            <div className="col-span-5 font-bold text-sm text-slate-700 pr-2">
+                              {editingExtracted ? (
+                                <Input 
+                                  value={res.test} 
+                                  onChange={(e) => updateExtractedResult(i, 'test', e.target.value)}
+                                  className="h-8 text-xs font-bold"
+                                />
+                              ) : res.test}
+                            </div>
+                            <div className="col-span-3">
+                              {editingExtracted ? (
+                                <Input 
+                                  value={res.result} 
+                                  onChange={(e) => updateExtractedResult(i, 'result', e.target.value)}
+                                  className="h-8 text-xs font-bold text-primary"
+                                />
+                              ) : (
+                                <span className="text-sm font-black text-primary bg-blue-50 px-2 py-1 rounded-md">{res.result}</span>
+                              )}
+                            </div>
+                            <div className="col-span-4">
+                              {editingExtracted ? (
+                                <Input 
+                                  value={res.range} 
+                                  onChange={(e) => updateExtractedResult(i, 'range', e.target.value)}
+                                  className="h-8 text-xs"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-slate-500 italic">{res.range}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Insights Section */}
+                  <div className="grid grid-cols-1 gap-5 pt-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">AI Suggested Diagnosis</Label>
+                      <div className="relative">
+                        <Textarea 
+                          value={extractedData.diagnosis} 
+                          onChange={(e) => setExtractedData({...extractedData, diagnosis: e.target.value})}
+                          className={`min-h-[60px] text-sm font-medium leading-relaxed ${editingExtracted ? "bg-white" : "bg-slate-50/50 border-slate-100"}`}
+                          readOnly={!editingExtracted}
+                        />
+                        <Sparkles className="absolute right-3 top-3 w-3.5 h-3.5 text-primary/30" />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Lab & Date</Label>
+                        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg text-[11px] font-bold text-slate-500 border border-slate-100">
+                          <CalendarIcon className="w-3.5 h-3.5" />
+                          <span>{extractedData.test_date}</span>
+                          <span className="text-slate-200">|</span>
+                          <span className="truncate">{extractedData.lab_name}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-end justify-end">
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            setDiagnosis(extractedData.diagnosis || "");
+                            setDescription((prev) => prev ? `${prev}\n\nNotes: ${extractedData.doctor_notes}` : extractedData.doctor_notes || "");
+                            toast.success("Values synced to main form!");
+                          }}
+                          className="h-9 px-4 text-xs font-bold bg-slate-800 hover:bg-slate-900 shadow-lg active:scale-95 transition-all text-white"
+                        >
+                          Sync to Form
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-50 px-6 py-4 border-t flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-slate-400 max-w-[200px] leading-tight italic">
+                    Note: Please verify all AI-extracted values against the original document before saving.
+                  </p>
+                  <Button 
+                    type="submit" 
+                    className="h-10 px-8 rounded-xl font-bold bg-primary shadow-xl shadow-primary/25 hover:shadow-primary/40 active:scale-95 transition-all"
+                  >
+                    Confirm & Save Record
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+          )}
+
+          {showSecondaryFields && (
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button type="submit" className="h-11 sm:h-10" disabled={submitting}>
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </span>
+                ) : "Save Record"}
+              </Button>
+              <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={() => navigate("/staff/records")}>Cancel</Button>
+            </div>
+          )}
         </form>
       </div>
     </DashboardLayout>
