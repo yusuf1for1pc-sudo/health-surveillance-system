@@ -130,57 +130,66 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed lg:sticky top-0 left-0 h-screen w-64 z-50 flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } ${role === "gov" ? "bg-[#0B1120] border-r border-[#1E293B]" : "bg-card border-r"}`}
       >
-        <div className="p-6 border-b flex items-center justify-between">
+        <div className={`p-6 border-b flex items-center justify-between ${role === "gov" ? "border-[#1E293B]" : ""}`}>
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">T</span>
+            <div className={`w-8 h-8 flex items-center justify-center ${role === "gov" ? "bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-[0_0_12px_rgba(99,102,241,0.5)]" : "bg-primary rounded-lg"}`}>
+              <span className={`font-bold text-sm ${role === "gov" ? "text-white" : "text-primary-foreground"}`}>T</span>
             </div>
-            <span className="font-semibold text-foreground">Tempest</span>
+            <span className={`font-bold tracking-tight ${role === "gov" ? "text-slate-100" : "font-semibold text-foreground"}`}>Tempest</span>
           </Link>
-          <button className="lg:hidden text-muted-foreground" onClick={() => setSidebarOpen(false)}>
+          <button className={`lg:hidden ${role === "gov" ? "text-slate-400" : "text-muted-foreground"}`} onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="px-4 py-3">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <div className="px-4 py-3 mt-2">
+          <span className={`${role === "gov" ? "text-[10px] font-bold text-slate-500 uppercase tracking-widest" : "text-xs font-medium text-muted-foreground uppercase tracking-wider"}`}>
             {roleLabels[role] || 'User'}
           </span>
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex-1 px-3 space-y-1 mt-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+            let linkClass = isActive
+              ? "bg-accent text-accent-foreground font-medium rounded-lg"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg";
+              
+            if (role === "gov") {
+              linkClass = isActive
+                ? "bg-gradient-to-r from-indigo-500/15 to-transparent text-indigo-400 font-semibold border-l-2 border-indigo-500 rounded-r-lg shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]"
+                : "text-slate-400 hover:bg-[#1E293B]/50 hover:text-slate-200 border-l-2 border-transparent transition-all rounded-r-lg";
+            }
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
+                className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-all duration-300 ease-in-out ${linkClass}`}
               >
-                {item.icon}
+                <div className={`transition-transform duration-300 ${role === "gov" && isActive ? "drop-shadow-[0_0_8px_rgba(99,102,241,0.8)] scale-110 text-indigo-400" : ""}`}>
+                  {item.icon}
+                </div>
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t space-y-2 relative">
+        <div className={`p-4 border-t space-y-2 relative mt-auto ${role === "gov" ? "border-[#1E293B] bg-[#0F172A]/80" : ""}`}>
           {user && (
             <div className="px-3 py-2">
-              <p className="text-sm font-medium text-foreground truncate">{user.full_name}</p>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              <p className={`text-sm font-medium truncate ${role === "gov" ? "text-slate-200" : "text-foreground"}`}>{user.full_name}</p>
+              <p className={`text-xs truncate ${role === "gov" ? "text-slate-500" : "text-muted-foreground"}`}>{user.email}</p>
             </div>
           )}
           <button
             onClick={() => setShowSignOutModal(true)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${role === "gov" ? "text-slate-400 hover:bg-[#1E293B] hover:text-slate-200" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
           >
             <LogOut className="w-5 h-5" />
             Sign Out

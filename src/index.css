@@ -123,7 +123,8 @@
 
 .theme-gov {
   --primary: 215 15% 48%;
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 210 25% 12%; 
+  --foreground: 210 25% 12%;
   --accent: 215 12% 94%;
   --accent-foreground: 215 15% 35%;
   --sidebar-primary: 215 15% 48%;
