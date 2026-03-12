@@ -33,11 +33,9 @@ const AdminGovernment = () => {
   const [phone, setPhone] = useState("");
   const [department, setDepartment] = useState("Public Health");
 
+  // Fetch government accounts from profiles table
   const fetchGovAccounts = useCallback(async () => {
-    if (!isSupabaseConfigured()) {
-      setLoadingAccounts(false);
-      return;
-    }
+    if (!isSupabaseConfigured()) return;
     setLoadingAccounts(true);
     try {
       const { data, error } = await supabase
