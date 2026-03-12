@@ -6,6 +6,7 @@ import DataTable from "@/components/dashboard/DataTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Prescription {
   id: string;
@@ -24,6 +25,7 @@ interface Prescription {
 const PatientPrescriptions = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,12 +94,12 @@ const PatientPrescriptions = () => {
 
   return (
     <DashboardLayout role="patient">
-      <PageHeader title="Prescriptions" description="Your prescribed medications" />
+      <PageHeader title={t("prescriptions_title")} description={t("prescriptions_desc")} />
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : tableData.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-          No prescriptions found.
+          {t("no_prescriptions")}
         </div>
       ) : (
         <DataTable
@@ -106,7 +108,7 @@ const PatientPrescriptions = () => {
             { key: "dosage", header: "Dosage" },
             { key: "frequency", header: "Frequency" },
             { key: "duration", header: "Duration" },
-            { key: "doctor", header: "Prescribed By" },
+            { key: "doctor", header: t("by") },
             { key: "date", header: "Date" },
           ]}
           data={tableData}

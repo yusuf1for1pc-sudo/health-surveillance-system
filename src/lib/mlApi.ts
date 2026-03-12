@@ -243,3 +243,36 @@ export async function getRecommendedIntervention(
     }
     return res.json();
 }
+
+export interface ExtractedTestResult {
+  test: string;
+  result: string;
+  range: string;
+}
+
+export interface ExtractedMedicalData {
+  patient_name: string;
+  age_gender: string;
+  test_name: string;
+  test_date: string;
+  lab_name: string;
+  diagnosis: string;
+  doctor_notes: string;
+  test_results: ExtractedTestResult[];
+}
+
+export const extractMedicalData = async (file: File): Promise<ExtractedMedicalData> => {
+  // Mock fallback since genuine extraction API is missing in this branch
+  return {
+    patient_name: "Demo Patient",
+    age_gender: "30 Y / F",
+    test_name: "General Diagnostics",
+    test_date: new Date().toLocaleDateString(),
+    lab_name: "Central Lab",
+    diagnosis: "Simulated findings.",
+    doctor_notes: "No genuine ML connection found.",
+    test_results: [
+      { test: "Hemoglobin", result: "12.5", range: "12.0 - 15.5 g/dL" }
+    ]
+  };
+};

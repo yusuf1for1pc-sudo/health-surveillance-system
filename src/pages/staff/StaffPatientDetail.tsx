@@ -19,6 +19,7 @@ import { useData } from "@/contexts/DataContext";
 import type { Patient } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import CDSSPanel from "@/components/dashboard/CDSSPanel";
 
 const StaffPatientDetail = () => {
   const { id } = useParams();
@@ -173,6 +174,9 @@ const StaffPatientDetail = () => {
             </div>
             <p className="text-xs text-muted-foreground mt-2">{patient.patient_id}</p>
           </div>
+
+          {/* CDSS Assistant Panel */}
+          <CDSSPanel patient={patient} records={patientRecords} />
         </div>
       </div>
 
