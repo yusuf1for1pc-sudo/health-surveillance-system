@@ -280,7 +280,7 @@ const DashboardLayout = ({ children, role, fit = false }: DashboardLayoutProps) 
 
       {/* Mobile drawer (horizontal labels) */}
       <aside
-        className={`lg:hidden fixed top-0 left-0 h-screen w-64 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-transform ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`lg:hidden fixed top-0 left-0 h-screen h-[100dvh] w-64 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-transform ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <button
           className="absolute top-5 right-3 text-sidebar-foreground/70"
