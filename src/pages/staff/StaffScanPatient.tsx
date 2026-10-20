@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { Panel, PanelGrid } from "@/components/layout/Modular";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Search, Loader2, XCircle } from "lucide-react";
+import { Camera, Search, Loader2, XCircle, ScanLine, QrCode, KeyRound } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -137,8 +138,12 @@ const StaffScanPatient = () => {
         cameraId,
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
+          // Landscape camera frame; the scan box scales with the viewfinder
+          qrbox: (w: number, h: number) => {
+            const side = Math.floor(Math.min(w, h) * 0.7);
+            return { width: side, height: side };
+          },
+          aspectRatio: 1.777,
         },
         (decodedText) => {
           // Called on every successful QR decode
@@ -164,124 +169,116 @@ const StaffScanPatient = () => {
     processPatientId(manualId.trim());
   };
 
+  const Corner = ({ className }: { className: string }) => (
+    <span className={`pointer-events-none absolute h-8 w-8 border-foreground ${className}`} aria-hidden />
+  );
+
   return (
-    <DashboardLayout role="staff">
-      <PageHeader
-        title="Scan Patient"
-        description="Scan a patient QR code or search by ID to view their record"
-      />
-      <div className="max-w-md mx-auto space-y-4">
-        {/* Mode Tabs */}
-        <div className="flex gap-2">
-          <Button
-            variant={mode === "scan" ? "default" : "outline"}
-            className="flex-1 gap-2"
-            onClick={() => setMode("scan")}
-          >
-            <Camera className="w-4 h-4" />
-            Scan QR
-          </Button>
-          <Button
-            variant={mode === "manual" ? "default" : "outline"}
-            className="flex-1 gap-2"
-            onClick={() => setMode("manual")}
-          >
-            <Search className="w-4 h-4" />
-            Manual Search
-          </Button>
-        </div>
+    <DashboardLayout role="staff" fit>
+      <PageHeader compact title="Scan Patient" description="Scan a patient's QR code or enter their ID to open their record" />
 
-        {mode === "scan" ? (
-          <div className="bg-card rounded-xl p-6 card-shadow text-center space-y-4">
-            {/* Camera viewport — html5-qrcode renders the video feed here */}
-            <div
-              id={QR_READER_ID}
-              className="w-full rounded-xl overflow-hidden bg-muted"
-              style={{ minHeight: scanning ? 280 : 0 }}
-            />
+      <PanelGrid className="lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)]">
+        {/* Scanner module */}
+        <Panel
+          className="flex min-h-0 flex-col"
+          bodyClassName="flex min-h-0 flex-1 flex-col gap-4"
+          title={mode === "scan" ? "Scan QR code" : "Enter patient ID"}
+          action={
+            <div className="flex rounded-sm border p-0.5" role="tablist" aria-label="Lookup method">
+              {([
+                { key: "scan", label: "Scan", icon: <Camera className="h-3.5 w-3.5" /> },
+                { key: "manual", label: "Enter ID", icon: <Search className="h-3.5 w-3.5" /> },
+              ] as const).map((t) => (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={mode === t.key}
+                  onClick={() => setMode(t.key)}
+                  className={`inline-flex items-center gap-1.5 rounded-[2px] px-3 py-1.5 text-xs font-medium transition-colors ${mode === t.key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {t.icon}{t.label}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          {mode === "scan" ? (
+            <>
+              {/* Viewfinder: fills the space left on the screen instead of forcing a tall square */}
+              <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-sm border bg-muted">
+                {/* html5-qrcode renders the live camera feed into this element */}
+                <div id={QR_READER_ID} className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover [&>div]:h-full" />
 
-            {/* Placeholder shown before scanning starts */}
-            {!scanning && !processing && (
-              <div className="w-full aspect-square bg-muted rounded-xl flex flex-col items-center justify-center gap-3">
-                <Camera className="w-14 h-14 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Camera will appear here
-                </p>
-              </div>
-            )}
-
-            {processing && (
-              <div className="w-full aspect-square bg-muted rounded-xl flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">
-                    Looking up patient…
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {scanning ? (
-              <Button
-                variant="destructive"
-                onClick={stopScanner}
-                className="w-full gap-2"
-              >
-                <XCircle className="w-4 h-4" />
-                Stop Scanning
-              </Button>
-            ) : (
-              <Button
-                onClick={startCameraScan}
-                disabled={processing}
-                className="w-full"
-              >
-                {processing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Processing…
-                  </>
-                ) : (
-                  "Start Camera Scan"
+                {!scanning && !processing && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Camera className="h-10 w-10" />
+                    <p className="text-sm">Camera preview appears here</p>
+                  </div>
                 )}
-              </Button>
-            )}
+                {processing && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/90">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Looking up patient…</p>
+                  </div>
+                )}
 
-            <p className="text-xs text-muted-foreground">
-              Position the patient's QR code within the frame
-            </p>
-          </div>
-        ) : (
-          <div className="bg-card rounded-xl p-6 card-shadow">
-            <form onSubmit={handleManualSearch} className="space-y-4">
+                <Corner className="left-3 top-3 border-l-2 border-t-2" />
+                <Corner className="right-3 top-3 border-r-2 border-t-2" />
+                <Corner className="bottom-3 left-3 border-b-2 border-l-2" />
+                <Corner className="bottom-3 right-3 border-b-2 border-r-2" />
+              </div>
+
+              <div className="flex shrink-0 flex-col items-center gap-2">
+                {scanning ? (
+                  <Button variant="destructive" onClick={stopScanner} className="w-full gap-2 sm:w-auto sm:min-w-[220px]">
+                    <XCircle className="h-4 w-4" /> Stop scanning
+                  </Button>
+                ) : (
+                  <Button onClick={startCameraScan} disabled={processing} className="w-full gap-2 sm:w-auto sm:min-w-[220px]">
+                    {processing ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</> : <><ScanLine className="h-4 w-4" /> Start camera</>}
+                  </Button>
+                )}
+                <p className="text-xs text-muted-foreground">Hold the patient's QR code inside the frame</p>
+              </div>
+            </>
+          ) : (
+            <form onSubmit={handleManualSearch} className="m-auto w-full max-w-md space-y-4 py-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-sm border text-muted-foreground"><KeyRound className="h-5 w-5" /></div>
               <div>
-                <label className="text-sm font-medium text-foreground">
-                  Patient ID
-                </label>
+                <label className="text-sm font-medium" htmlFor="patient-id">Patient ID</label>
                 <Input
+                  id="patient-id"
                   placeholder="e.g. TMP-2026-XXXX"
-                  className="mt-1.5 h-11"
+                  className="mt-1.5 h-12 font-mono"
                   value={manualId}
                   onChange={(e) => setManualId(e.target.value)}
                   required
                   autoFocus
                 />
+                <p className="mt-1.5 text-xs text-muted-foreground">The ID is printed on the patient's Health Card, under their name.</p>
               </div>
-              <Button
-                type="submit"
-                className="w-full h-11"
-                disabled={processing}
-              >
-                {processing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  "Search & Access"
-                )}
+              <Button type="submit" className="h-11 w-full" disabled={processing}>
+                {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search & open record"}
               </Button>
             </form>
-          </div>
-        )}
-      </div>
+          )}
+        </Panel>
+
+        {/* Guidance module */}
+        <aside className="space-y-4 lg:min-h-0 lg:overflow-y-auto">
+          <Panel title="How it works" icon={<QrCode className="h-5 w-5" />} bodyClassName="space-y-3 text-sm text-muted-foreground">
+            {["Ask the patient to open their Health Card.", "Scan the QR code, or type the ID shown under their name.", "Their record opens once access is verified."].map((step, i) => (
+              <p key={i} className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs text-foreground">{i + 1}</span>
+                {step}
+              </p>
+            ))}
+          </Panel>
+          <Panel title="Camera not working?" bodyClassName="text-sm text-muted-foreground">
+            Allow camera access in your browser, or switch to <button className="underline underline-offset-4 hover:text-foreground" onClick={() => setMode("manual")}>Enter ID</button> to look the patient up by their ID.
+          </Panel>
+        </aside>
+      </PanelGrid>
     </DashboardLayout>
   );
 };

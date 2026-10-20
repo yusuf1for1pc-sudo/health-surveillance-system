@@ -46,13 +46,13 @@ const StaffPatientDetail = () => {
   const patientRecords = getRecordsForPatient(patient.id);
 
   const colors: Record<string, string> = {
-    'ACTIVE': 'bg-amber-100 text-amber-700 border-amber-200',
-    'RECOVERED': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    'CRITICAL': 'bg-rose-100 text-rose-700 border-rose-200',
-    'REFERRED': 'bg-purple-100 text-purple-700 border-purple-200',
+    'ACTIVE': 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
+    'RECOVERED': 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
+    'CRITICAL': 'bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
+    'REFERRED': 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30',
   };
   const statusStr = patient.status || 'ACTIVE';
-  const colorClass = colors[statusStr] || 'bg-gray-100 text-gray-700 border-gray-200';
+  const colorClass = colors[statusStr] || 'bg-muted text-foreground border-border';
 
   const handleStatusUpdate = async () => {
     setUpdating(true);

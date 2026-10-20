@@ -33,14 +33,14 @@ const AdminWorkspace = () => {
   const recentOrgs = organizations.slice(0, 5);
 
   return (
-    <DashboardLayout role="admin">
-      <PageHeader title="Admin Dashboard" description="Platform overview and management" />
-      <div className="grid sm:grid-cols-3 gap-4 mb-8">
+    <DashboardLayout role="admin" fit>
+      <PageHeader compact title="Admin Dashboard" description="Platform overview and management" />
+      <div className="grid sm:grid-cols-3 gap-4 mb-5 shrink-0">
         <StatCard title="Medical Staff" value={counts.staff} subtitle="Across all orgs" icon={<Users className="w-5 h-5" />} />
         <StatCard title="Patients" value={counts.patients} subtitle="Total registered" icon={<Shield className="w-5 h-5" />} />
         <StatCard title="Records" value={counts.records.toLocaleString()} subtitle="Total medical records" icon={<Shield className="w-5 h-5" />} />
       </div>
-      <h2 className="text-lg font-medium text-foreground mb-4">Recent Organization Signups</h2>
+      <h2 className="mb-3 shrink-0 text-lg font-medium text-foreground">Recent Organization Signups</h2>
       <DataTable
         columns={[
           { key: "name", header: "Organization" },

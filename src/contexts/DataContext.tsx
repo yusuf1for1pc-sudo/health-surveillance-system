@@ -53,8 +53,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     // ─── Load mock data ONLY for demo users ────────────────
     useEffect(() => {
         if (user && isDemoUser(user.id)) {
-            setPatients(initialMockPatients);
-            setRecords(initialMockRecords);
+            if (user.role === 'patient') {
+                // A patient only sees their own chart
+                const mine = initialMockPatients.filter(p => p.auth_user_id === user.id);
+                const ids = new Set(mine.map(p => p.id));
+                setPatients(mine);
+                setRecords(initialMockRecords.filter(r => ids.has(r.patient_id)));
+            } else if (user.role === 'org_admin' && user.organization_id) {
+                // An organization sees its own patients and records
+                setPatients(initialMockPatients.filter(p => p.organization_id === user.organization_id));
+                setRecords(initialMockRecords.filter(r => r.organization_id === user.organization_id));
+            } else {
+                setPatients(initialMockPatients);
+                setRecords(initialMockRecords);
+            }
+            // Admin and government pages list organizations; org admins see only their own
+            setOrganizations(
+                user.role === 'org_admin' && user.organization_id
+                    ? mockOrganizations.filter(o => o.id === user.organization_id)
+                    : mockOrganizations,
+            );
             setLoading(false);
         } else if (!user) {
             // No user logged in yet — keep empty

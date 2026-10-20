@@ -1,3 +1,5 @@
+import { useBackToLanding } from "@/hooks/use-back-to-landing";
+import ComicStory from "@/components/auth/ComicStory";
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@/lib/types";
+import { ChevronLeft } from "lucide-react";
 import { Eye, EyeOff, Calendar as CalendarIcon, Phone as PhoneIcon, User as UserIcon, Plus, X, HeartPulse } from "lucide-react";
 import {
   Select,
@@ -23,6 +26,7 @@ import {
 } from "@/components/ui/select";
 
 const RegisterPatient = () => {
+  useBackToLanding();
   const { signUp, skipAuthRedirect } = useAuth();
   // Patient Identity
   const [fullName, setFullName] = useState("");
@@ -148,9 +152,9 @@ const RegisterPatient = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="w-12 h-12 rounded-full bg-accent text-accent-foreground flex items-center justify-center mx-auto mb-4">✓</div>
+          <div className="w-12 h-12 rounded-sm bg-accent text-accent-foreground flex items-center justify-center mx-auto mb-4">✓</div>
           <h1 className="text-2xl font-semibold text-foreground">Account Created</h1>
           <p className="text-muted-foreground mt-2">Your account is ready. You can now sign in with your credentials.</p>
           <Link to="/login"><Button className="mt-6">Go to Login</Button></Link>
@@ -160,28 +164,31 @@ const RegisterPatient = () => {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[url('/bg-abstract-top.png')] bg-cover bg-center bg-no-repeat bg-fixed p-4">
-      {/* Main Glassmorphism Card (1100x650) */}
-      <div className="w-full max-w-[1100px] h-full max-h-[750px] lg:h-[650px] bg-white/40 backdrop-blur-md rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col lg:flex-row overflow-hidden z-10 relative">
-        
-        {/* Left Pane: Registration Form (Scrollable) */}
-        <div className="w-full lg:w-1/2 h-full overflow-y-auto p-6 sm:p-10 relative flex flex-col bg-white/60">
+    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      {/* Form side: full height, the page scrolls instead of a boxed card */}
+      <div className="auth-enter flex min-h-screen flex-col px-6 py-6 sm:px-12 lg:px-16 xl:px-24 [&>*]:mx-auto [&>*]:w-full [&>*]:max-w-lg">
           <div className="text-center mb-8 shrink-0">
-            <Link to="/" className="inline-flex items-center gap-2 mb-4 justify-center">
-              <div className="w-8 h-8 rounded-lg bg-[#1e3a8a] flex items-center justify-center shadow-sm">
-                <span className="text-white font-bold text-sm">T</span>
+            <div className="flex justify-center mb-4">
+              <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground font-medium hover:text-foreground transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+                Back to Home
+              </Link>
+            </div>
+            <div className="inline-flex items-center gap-2 mb-4 justify-center">
+              <div className="w-8 h-8 rounded-sm bg-foreground flex items-center justify-center">
+                <span className="text-background font-serif font-semibold text-base">T</span>
               </div>
-              <span className="font-bold text-xl text-[#0f2a58] tracking-tight">Tempest</span>
-            </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">Create Account</h1>
-            <p className="text-[#3b82f6] font-medium mt-1.5">Join the Tempest health network</p>
+              <span className="font-serif font-semibold text-2xl text-foreground tracking-tight">Tempest</span>
+            </div>
+            <h1 className="text-2xl sm:font-serif text-4xl font-medium text-slate-800 tracking-tight">Create Account</h1>
+            <p className="text-muted-foreground font-medium mt-1.5">Join the Tempest health network</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 flex-grow">
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label className="text-slate-700 font-medium">Full Name</Label>
-              <Input placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1.5 focus-visible:ring-blue-500 bg-white/80" required />
+              <Input placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1.5" required />
             </div>
 
             <div>
@@ -206,7 +213,7 @@ const RegisterPatient = () => {
 
             <div>
               <Label className="text-slate-700 font-medium">Email</Label>
-              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 focus-visible:ring-blue-500 bg-white/80" required />
+              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" required />
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:col-span-2">
@@ -303,14 +310,14 @@ const RegisterPatient = () => {
                     }
                   }}
                 />
-                <Button type="button" variant="secondary" onClick={addAllergy} className="shrink-0 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
+                <Button type="button" variant="secondary" onClick={addAllergy} className="shrink-0 bg-muted text-foreground border border-border hover:bg-muted">
                   <Plus className="w-4 h-4 mr-1" /> Add
                 </Button>
               </div>
               {allergiesList.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {allergiesList.map((allergy, index) => (
-                    <div key={index} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-medium border border-blue-200">
+                    <div key={index} className="inline-flex items-center gap-1 bg-muted text-foreground px-2.5 py-1 rounded-sm text-xs font-medium border border-border">
                       {allergy}
                       <button
                         type="button"
@@ -390,37 +397,36 @@ const RegisterPatient = () => {
           </div>
 
           {error && (
-            <div className={`shrink-0 text-sm p-3 rounded-md mt-4 ${error.includes("check your email") ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+            <div className={`shrink-0 text-sm p-3 rounded-sm mt-4 ${error.includes("check your email") ? "bg-muted text-foreground border border-border" : "bg-red-50 text-red-700 dark:text-red-300 border border-red-200"}`}>
               {error}
             </div>
           )}
 
           <div className="shrink-0 mt-6 pb-2">
-            <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-[#0f2a58] text-white shadow-md shadow-blue-900/20 transition-all rounded-lg h-11 font-medium" disabled={loading}>
+            <Button type="submit" className="w-full h-11" disabled={loading}>
               {loading ? (status || "Processing...") : "Create Account"}
             </Button>
           </div>
           </form>
 
-          <div className="mt-6 text-center text-sm text-[#3b82f6] font-medium shrink-0 pb-4">
-            Already have an account? <Link to="/login" className="text-[#1e3a8a] font-bold hover:underline">Sign in</Link>
+          <div className="mt-6 text-center text-sm text-muted-foreground font-medium shrink-0 pb-4">
+            Already have an account? <Link to="/login" className="text-foreground font-bold hover:underline">Sign in</Link>
           </div>
         </div>
 
-        {/* Right Pane: Welcome Banner / Branding */}
-        <div className="hidden lg:flex w-1/2 bg-white/10 flex-col items-center justify-center relative p-12 text-center overflow-hidden border-l border-white/20">
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="mb-8 p-3 bg-white/10 backdrop-blur-md rounded-2xl shadow-sm border border-white/20">
-              <HeartPulse className="w-12 h-12 text-[#1e3a8a] stroke-[1.5]" />
-            </div>
-            
-            <h2 className="text-4xl lg:text-5xl font-extrabold text-[#0f2a58] mb-4 tracking-tight drop-shadow-sm">Welcome to Tempest</h2>
-            <p className="text-xl text-[#1e3a8a] font-medium max-w-md leading-relaxed drop-shadow-sm opacity-90">
-              You're one step away from a state-of-the-art health surveillance experience.
-            </p>
-          </div>
+      {/* Comic side: same flip-through story as sign in */}
+      <aside className="auth-aside relative hidden flex-col justify-between overflow-hidden bg-[#1c1c1c] p-10 text-[#e8e2d8] lg:sticky lg:top-0 lg:flex lg:h-screen xl:p-14">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] opacity-60">Tempest · Health surveillance</p>
+          <h2 className="mt-3 font-serif text-4xl font-medium leading-[1.05] xl:text-5xl">Join the network.</h2>
         </div>
-      </div>
+
+        <ComicStory />
+
+        <p className="font-script text-2xl leading-snug opacity-90 xl:text-3xl [@media(max-height:760px)]:hidden">
+          You're just one step away from a next-generation health surveillance experience.
+        </p>
+      </aside>
     </div>
   );
 };

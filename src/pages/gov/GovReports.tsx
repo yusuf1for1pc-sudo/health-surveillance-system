@@ -1,6 +1,7 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { Panel, PanelGrid } from "@/components/layout/Modular";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Loader2, Sparkles, Building2, Activity, Info } from "lucide-react";
 import { getSituationReport } from "@/lib/mlApi";
@@ -94,179 +95,132 @@ const GovReports = () => {
   const criticalCases = patients.filter(p => p.status === 'CRITICAL').length;
   const recoveredCases = patients.filter(p => p.status === 'RECOVERED').length;
 
+  const loadRows = [
+    { name: "Mumbai Metro", pct: 84, label: "High load", tone: "text-warning", bar: "bg-warning" },
+    { name: "Pune Region", pct: 62, label: "Stable", tone: "text-success", bar: "bg-success" },
+    { name: "Nashik District", pct: 45, label: "Nominal", tone: "text-muted-foreground", bar: "bg-muted-foreground/50" },
+  ];
+
+  const summaryRows = [
+    { metric: "Registered patients", value: totalCases, trend: "+1.2%", up: true, tone: "" },
+    { metric: "Active infections", value: activeCases, trend: "+4.5%", up: false, tone: "text-warning" },
+    { metric: "Critical cases (ICU)", value: criticalCases, trend: "-0.8%", up: true, tone: "text-danger" },
+    { metric: "Recovered", value: recoveredCases, trend: "+12.4%", up: true, tone: "text-success" },
+  ];
+
+  const downloadReport = () => {
+    if (!report) return;
+    const blob = new Blob([report], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `situation_report_${new Date().toISOString().split("T")[0]}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded!");
+  };
+
   return (
-    <DashboardLayout role="gov">
-      <PageHeader title="Health Reports" description="Generate AI-powered situation reports and export data" />
+    <DashboardLayout role="gov" fit>
+      <PageHeader compact title="Health Reports" description="Generate AI-powered situation reports and export data" />
 
-      {/* Section 1: Epidemiological Statistics Table */}
-      <h3 className="text-lg font-medium text-foreground mb-3 flex items-center gap-2">
-        <Activity className="w-5 h-5 text-blue-600" /> Executive Summary
-      </h3>
-      <div className="bg-card rounded-xl card-shadow overflow-hidden mb-8 border border-slate-100">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 border-b text-slate-500 font-medium">
-              <tr>
-                <th className="px-6 py-4">Metric</th>
-                <th className="px-6 py-4">Total Value</th>
-                <th className="px-6 py-4">7-Day Trend</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-800">
-              <tr>
-                <td className="px-6 py-4 font-medium">Registered Patients</td>
-                <td className="px-6 py-4 font-bold">{totalCases.toLocaleString()}</td>
-                <td className="px-6 py-4 text-emerald-600 font-medium">+1.2%</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 font-medium">Active Infections</td>
-                <td className="px-6 py-4 font-bold text-amber-600">{activeCases.toLocaleString()}</td>
-                <td className="px-6 py-4 text-rose-600 font-medium">+4.5%</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 font-medium">Critical Cases (ICU)</td>
-                <td className="px-6 py-4 font-bold text-rose-600">{criticalCases.toLocaleString()}</td>
-                <td className="px-6 py-4 text-emerald-600 font-medium">-0.8%</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 font-medium">Recovered</td>
-                <td className="px-6 py-4 font-bold text-emerald-600">{recoveredCases.toLocaleString()}</td>
-                <td className="px-6 py-4 text-emerald-600 font-medium">+12.4%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Section 2: Generate Situation Report (Gemini) */}
-      <h3 className="text-lg font-medium text-foreground mb-3 flex items-center gap-2">
-        <Sparkles className="w-5 h-5 text-purple-600" /> AI Situation Analysis
-      </h3>
-      <div className="bg-card rounded-xl card-shadow p-6 mb-8 border border-slate-100">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <h4 className="text-base font-medium text-foreground">Generative Epidemic Summary</h4>
-            <p className="text-sm text-muted-foreground mt-1">Compile recent data streams into an actionable epidemiological report using LLM analysis.</p>
-          </div>
-          <Button onClick={handleGenerate} disabled={generating} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shrink-0">
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {generating ? "Synthesizing..." : "Generate AI Report"}
-          </Button>
-        </div>
-
-        {report && (
-          <div className="mt-6 border border-slate-200 rounded-lg p-5 bg-slate-50 relative">
-            <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-              <span className="text-[11px] uppercase tracking-wider bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full font-bold">
-                Source: {reportSource === "gemini" ? "Gemini 2.0 Flash" : "Structured Rules"}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs gap-1.5 bg-white"
-                onClick={() => {
-                  const blob = new Blob([report], { type: "text/markdown" });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.href = url;
-                  link.download = `situation_report_${new Date().toISOString().split("T")[0]}.md`;
-                  link.click();
-                  URL.revokeObjectURL(url);
-                  toast.success("Report downloaded!");
-                }}
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export Markdown
+      <PanelGrid className="lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[minmax(0,1fr)]">
+        {/* Main: the situation report fills the height and scrolls inside */}
+        <Panel
+          title="AI situation analysis"
+          icon={<Sparkles className="h-5 w-5" />}
+          description={report ? `Source: ${reportSource === "gemini" ? "Gemini 2.0 Flash" : "Structured rules"}` : "Compile recent data streams into an epidemiological report"}
+          className="flex min-h-[340px] flex-col lg:min-h-0"
+          bodyClassName="flex min-h-0 flex-1 flex-col p-0"
+          action={
+            <div className="flex items-center gap-2">
+              {report && (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadReport}>
+                  <Download className="h-3.5 w-3.5" /> Markdown
+                </Button>
+              )}
+              <Button size="sm" onClick={handleGenerate} disabled={generating} className="gap-1.5">
+                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generating ? "Synthesizing…" : report ? "Regenerate" : "Generate report"}
               </Button>
             </div>
-            <div className="prose prose-sm prose-slate max-w-none text-slate-800 whitespace-pre-wrap text-sm leading-relaxed bg-white p-6 rounded border border-slate-100 shadow-sm">
-              {report}
+          }
+        >
+          {report ? (
+            <div className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-5 text-sm leading-relaxed">{report}</div>
+          ) : (
+            <div className="m-auto max-w-sm p-8 text-center">
+              <Sparkles className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <p className="font-serif text-xl">No report yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Generate a situation report from the latest records, Rt and anomaly data. It appears here and can be exported as Markdown.</p>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </Panel>
 
-      {/* Section 3: Hospital Proximity & Resource Load */}
-      <h3 className="text-lg font-medium text-foreground mb-3 flex items-center gap-2">
-        <Building2 className="w-5 h-5 text-rose-600" /> Regional Hospital Load
-      </h3>
-      <div className="grid sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-card rounded-xl card-shadow p-5 border border-slate-100">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mumbai Metro</h4>
-          <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-amber-600">84%</span>
-            <span className="text-xs font-medium text-rose-600">High Load</span>
-          </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div className="bg-amber-500 w-[84%] h-full rounded-full" />
-          </div>
-        </div>
-        <div className="bg-card rounded-xl card-shadow p-5 border border-slate-100">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Pune Region</h4>
-          <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-emerald-600">62%</span>
-            <span className="text-xs font-medium text-emerald-600">Stable</span>
-          </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div className="bg-emerald-500 w-[62%] h-full rounded-full" />
-          </div>
-        </div>
-        <div className="bg-card rounded-xl card-shadow p-5 border border-slate-100">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nashik District</h4>
-          <div className="flex items-end justify-between">
-            <span className="text-3xl font-bold text-slate-700">45%</span>
-            <span className="text-xs font-medium text-slate-500">Nominal</span>
-          </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div className="bg-slate-400 w-[45%] h-full rounded-full" />
-          </div>
-        </div>
-      </div>
+        {/* Side: numbers and exports */}
+        <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <Panel title="Executive summary" icon={<Activity className="h-5 w-5" />} bodyClassName="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="px-4 py-2 text-xs font-normal text-muted-foreground">Metric</th>
+                  <th className="px-2 py-2 text-right text-xs font-normal text-muted-foreground">Total</th>
+                  <th className="px-4 py-2 text-right text-xs font-normal text-muted-foreground">7-day</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {summaryRows.map((r) => (
+                  <tr key={r.metric}>
+                    <td className="px-4 py-2">{r.metric}</td>
+                    <td className={`px-2 py-2 text-right font-medium ${r.tone}`}>{r.value.toLocaleString()}</td>
+                    <td className={`px-4 py-2 text-right text-xs font-medium ${r.up ? "text-success" : "text-danger"}`}>{r.trend}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
 
-      {/* Export Buttons */}
-      <div className="flex items-center justify-between mb-3 mt-4">
-        <h3 className="text-lg font-medium text-foreground">Raw Data Export</h3>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <div className="bg-card rounded-xl card-shadow p-5 border border-slate-100 flex items-center justify-between group hover:border-blue-200 transition-colors">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-800">Medical Records Registry</p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">{records.length.toLocaleString()} records available</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2 font-semibold text-slate-700" onClick={handleExportCSV}>
-            <Download className="w-3.5 h-3.5" /> CSV
-          </Button>
-        </div>
+          <Panel title="Regional hospital load" icon={<Building2 className="h-5 w-5" />} bodyClassName="space-y-3 p-4">
+            {loadRows.map((r) => (
+              <div key={r.name}>
+                <div className="mb-1 flex items-baseline justify-between text-sm">
+                  <span>{r.name}</span>
+                  <span className="text-xs"><b className={`font-medium ${r.tone}`}>{r.pct}%</b> <span className="text-muted-foreground">{r.label}</span></span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className={`h-full rounded-full ${r.bar}`} style={{ width: `${r.pct}%` }} />
+                </div>
+              </div>
+            ))}
+          </Panel>
 
-        <div className="bg-card rounded-xl card-shadow p-5 border border-slate-100 flex items-center justify-between group hover:border-emerald-200 transition-colors">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-100 transition-colors">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-800">Patient Demographics</p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">{patients.length.toLocaleString()} anonymized profiles</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2 font-semibold text-slate-700" onClick={handleExportPatients}>
-            <Download className="w-3.5 h-3.5" /> CSV
-          </Button>
-        </div>
-      </div>
+          <Panel title="Raw data export" icon={<FileText className="h-5 w-5" />} bodyClassName="space-y-2 p-4">
+            {[
+              { label: "Medical records registry", sub: `${records.length.toLocaleString()} records`, run: handleExportCSV },
+              { label: "Patient demographics", sub: `${patients.length.toLocaleString()} anonymized profiles`, run: handleExportPatients },
+            ].map((x) => (
+              <div key={x.label} className="flex items-center justify-between gap-3 rounded-sm border px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{x.label}</p>
+                  <p className="text-xs text-muted-foreground">{x.sub}</p>
+                </div>
+                <Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={x.run}>
+                  <Download className="h-3.5 w-3.5" /> CSV
+                </Button>
+              </div>
+            ))}
+          </Panel>
 
-      {/* Citation Footer */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-start gap-3 mt-12 mb-4 text-slate-500">
-        <Info className="w-5 h-5 shrink-0 text-slate-400 mt-0.5" />
-        <div className="text-xs leading-relaxed font-medium">
-          <p className="mb-1 text-slate-600 font-semibold">Report Generation & Methodologies</p>
-          This dashboard aggregates anonymized institutional EHR data and crowd-sourced reporting. Statistical analysis employs EpiEstim for Reproduction Number (Rt) formulation and Isolation Forests for anomaly detection. Generative summaries are powered by Google Gemini 2.0. Exported tabular data complies with strict de-identification protocols. Real-time accuracy is dependent on field reporting latency and geographic sparsity constraints.
+          <details className="rounded-sm border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-foreground">
+              <Info className="h-4 w-4" /> Methodology &amp; data notes
+            </summary>
+            <p className="mt-2 leading-relaxed">
+              This dashboard aggregates anonymized institutional EHR data and crowd-sourced reporting. Rt uses EpiEstim and anomalies use Isolation Forests; generative summaries are powered by Google Gemini 2.0. Exported tabular data follows de-identification protocols, and accuracy depends on field reporting latency and geographic sparsity.
+            </p>
+          </details>
         </div>
-      </div>
+      </PanelGrid>
     </DashboardLayout>
   );
 };

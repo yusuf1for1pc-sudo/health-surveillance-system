@@ -10,7 +10,7 @@ import { ShieldAlert } from 'lucide-react';
 
 const DashboardLayout: React.FC = () => {
     return (
-        <div className="min-h-screen bg-slate-50 p-6 font-sans">
+        <div className="min-h-screen bg-muted/50 p-6 font-sans">
 
             {/* Header */}
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between">
@@ -19,19 +19,19 @@ const DashboardLayout: React.FC = () => {
                         <ShieldAlert className="h-8 w-8 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Health Command Center</h1>
-                        <p className="text-slate-500 text-sm">Real-time Disease Surveillance & Analytics</p>
+                        <h1 className="text-2xl font-bold text-foreground">Health Command Center</h1>
+                        <p className="text-muted-foreground text-sm">Real-time Disease Surveillance & Analytics</p>
                     </div>
                 </div>
                 <div className="mt-4 md:mt-0 flex gap-3">
-                    <select className="bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select className="bg-card border border-foreground/30 rounded-md px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring">
                         <option>All Regions</option>
                         <option>Mumbai</option>
                         <option>Pune</option>
                         <option>Nashik</option>
                         <option>Nagpur</option>
                     </select>
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm transition-colors">
+                    <button className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium shadow-sm transition-colors">
                         Generate Report
                     </button>
                 </div>

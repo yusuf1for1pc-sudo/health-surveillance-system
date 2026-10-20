@@ -57,8 +57,8 @@ const OrgWorkspace = () => {
   }, [orgId]);
 
   return (
-    <DashboardLayout role="org">
-      <PageHeader title="Organization Dashboard" description="Overview of your healthcare organization" />
+    <DashboardLayout role="org" fit>
+      <PageHeader compact title="Organization Dashboard" description="Overview of your healthcare organization" />
 
       {loading ? (
         <div className="flex justify-center py-12">

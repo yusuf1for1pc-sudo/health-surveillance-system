@@ -26,22 +26,29 @@ interface MedicalRecord {
 interface TrendChartProps {
     records: MedicalRecord[];
     title?: string;
+    /** Fill the height of the parent panel (fit-to-screen pages) instead of a fixed 400px chart. */
+    fill?: boolean;
 }
 
-const COLORS = [
-    "#ef4444", // Red (Dengue/Critical)
-    "#f97316", // Orange
-    "#eab308", // Yellow
-    "#22c55e", // Green
-    "#06b6d4", // Cyan
-    "#3b82f6", // Blue
-    "#8b5cf6", // Purple
-    "#ec4899", // Pink
-];
+// Theme chart palette (see --chart-N in index.css). Each disease also gets its own marker shape,
+// so lines stay distinguishable without relying on colour alone.
+const COLORS = Array.from({ length: 8 }, (_, i) => `hsl(var(--chart-${i + 1}))`);
+
+const MarkerDot = ({ cx, cy, index, color }: { cx?: number; cy?: number; index: number; color: string }) => {
+    if (cx === undefined || cy === undefined || Number.isNaN(cx) || Number.isNaN(cy)) return null;
+    const shape = index % 5;
+    const r = 4;
+    const common = { fill: "hsl(var(--card))", stroke: color, strokeWidth: 2 };
+    if (shape === 0) return <circle cx={cx} cy={cy} r={r} {...common} />;
+    if (shape === 1) return <rect x={cx - r} y={cy - r} width={r * 2} height={r * 2} {...common} />;
+    if (shape === 2) return <path d={`M${cx} ${cy - r - 1} L${cx + r + 1} ${cy} L${cx} ${cy + r + 1} L${cx - r - 1} ${cy} Z`} {...common} />;
+    if (shape === 3) return <path d={`M${cx - r - 1} ${cy - r} L${cx + r + 1} ${cy - r} L${cx} ${cy + r + 1} Z`} {...common} />;
+    return <path d={`M${cx - r} ${cy} H${cx + r} M${cx} ${cy - r} V${cy + r}`} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" />;
+};
 
 const OUTBREAK_THRESHOLD = 2.0; // 100% increase over baseline
 
-export default function TrendChart({ records, title = "Disease Trends & Spikes" }: TrendChartProps) {
+export default function TrendChart({ records, title = "Disease Trends & Spikes", fill = false }: TrendChartProps) {
     const { toast } = useToast();
     const [period, setPeriod] = useState<'weekly' | 'monthly'>('monthly');
     const MA_WINDOW = 3;
@@ -160,8 +167,8 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-slate-200">
-                    <p className="font-bold text-slate-800 mb-3 pb-2 border-b border-slate-100">{label}</p>
+                <div className="bg-popover/95 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-border">
+                    <p className="font-bold text-foreground mb-3 pb-2 border-b border-border">{label}</p>
                     <div className="space-y-2">
                         {payload.map((entry: any, index: number) => {
                             const isMA = entry.name.includes('_MA');
@@ -176,7 +183,7 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                 <div key={`item-${index}`} className="flex items-center justify-between gap-6 text-sm">
                                     <div className="flex items-center gap-2.5">
                                         <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
-                                        <span className="text-slate-700 font-medium">{entry.name}</span>
+                                        <span className="text-foreground font-medium">{entry.name}</span>
                                         {hasSpike && (
                                             <AlertTriangle className="w-4 h-4 text-red-500 ml-1 drop-shadow-sm" />
                                         )}
@@ -195,8 +202,8 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
     };
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <Card className={fill ? "flex h-full min-h-[320px] min-w-0 flex-col rounded-sm shadow-none" : undefined}>
+            <CardHeader className={`flex flex-row items-center justify-between ${fill ? "flex-wrap gap-2 px-4 py-3" : ""}`}>
                 <div>
                     <CardTitle className="flex items-center gap-2">
                         {title}
@@ -212,13 +219,13 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                     </CardDescription>
                     
                     {/* Custom Line Style Legend (Top Left) */}
-                    <div className="flex flex-col mt-4 space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium tracking-wide uppercase">
-                            <div className="w-6 border-b-[2px] border-dashed border-slate-400"></div>
+                    <div className={`flex ${fill ? "mt-2 gap-4" : "mt-4 flex-col space-y-2"}`}>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium tracking-wide uppercase">
+                            <div className="w-6 border-b-[2px] border-dashed border-foreground/30"></div>
                             <span>{MA_WINDOW}-Period Average</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium tracking-wide uppercase">
-                            <div className="w-6 border-b-[2px] border-solid border-slate-400"></div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium tracking-wide uppercase">
+                            <div className="w-6 border-b-[2px] border-solid border-foreground/30"></div>
                             <span>Actual Cases</span>
                         </div>
                     </div>
@@ -242,37 +249,39 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="h-[400px]">
+            <CardContent className={fill ? "min-h-0 flex-1 px-3 pb-3" : undefined}>
+                <div className={fill ? "h-full min-h-[240px]" : "h-[400px]"}>
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                             <XAxis
                                 dataKey="displayDate"
                                 tickLine={false}
                                 axisLine={false}
                                 tickMargin={10}
-                                className="text-xs"
+                                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                             />
                             <YAxis
                                 tickLine={false}
                                 axisLine={false}
-                                className="text-xs"
-                                label={{ value: 'Cases', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
+                                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                                label={{ value: 'Cases', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
                             />
                             <Tooltip
                                 content={<CustomTooltip />}
-                                cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+                                cursor={{ stroke: 'hsl(var(--border))', strokeDasharray: '3 3' }}
                             />
                             
                             {/* Main Disease Legend */}
                             <Legend 
-                                wrapperStyle={{ paddingTop: '20px' }} 
+                                wrapperStyle={{ paddingTop: '16px', fontSize: 12 }}
+                                iconSize={10}
+                                formatter={(value: string) => <span style={{ color: 'hsl(var(--foreground))', letterSpacing: '0.04em' }}>{value}</span>}
                                 payload={[
                                     // Only show the specific disease colors
                                     ...topDiseases.map((disease, idx) => ({
                                         value: disease,
-                                        type: 'circle' as const,
+                                        type: 'square' as const,
                                         id: disease,
                                         color: COLORS[idx % COLORS.length]
                                     }))
@@ -285,9 +294,9 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                     type="monotone"
                                     dataKey={disease}
                                     stroke={COLORS[idx % COLORS.length]}
-                                    strokeWidth={3}
-                                    dot={{ r: 4, fill: COLORS[idx % COLORS.length], strokeWidth: 0 }}
-                                    activeDot={{ r: 6 }}
+                                    strokeWidth={2.25}
+                                    dot={(p: any) => <MarkerDot key={`${disease}-${p.index}`} cx={p.cx} cy={p.cy} index={idx} color={COLORS[idx % COLORS.length]} />}
+                                    activeDot={{ r: 5, strokeWidth: 0 }}
                                 />
                             ))}
 
@@ -298,11 +307,11 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                     type="monotone"
                                     dataKey={`${disease}_MA`}
                                     stroke={COLORS[idx % COLORS.length]}
-                                    strokeWidth={2}
-                                    strokeDasharray="5 5"
+                                    strokeWidth={1.5}
+                                    strokeDasharray="4 5"
                                     dot={false}
                                     legendType="none"
-                                    className="opacity-50"
+                                    className="opacity-45"
                                 />
                             ))}
 
@@ -311,7 +320,7 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                 <Scatter
                                     key={`${disease}_Spike`}
                                     dataKey={`${disease}_Spike`}
-                                    fill="red"
+                                    fill="hsl(var(--danger))"
                                     onClick={(data) => {
                                         if (data && data.payload) {
                                             toast({
@@ -328,7 +337,7 @@ export default function TrendChart({ records, title = "Disease Trends & Spikes" 
                                         if (!payload || !payload[`${disease}_Spike`]) return <path d="" />; 
                                         
                                         return (
-                                            <svg x={cx - 10} y={cy - 10} width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="red" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_2px_4px_rgba(255,0,0,0.5)] hover:scale-125 transition-transform duration-200 cursor-pointer outline-none">
+                                            <svg x={cx - 9} y={cy - 11} width={18} height={18} viewBox="0 0 24 24" fill="hsl(var(--card))" stroke="hsl(var(--danger))" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="hover:scale-125 transition-transform duration-200 cursor-pointer outline-none">
                                                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                                                 <line x1="12" y1="9" x2="12" y2="13" />
                                                 <line x1="12" y1="17" x2="12.01" y2="17" />

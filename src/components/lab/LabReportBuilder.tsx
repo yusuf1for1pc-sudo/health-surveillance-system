@@ -153,7 +153,7 @@ export default function LabReportBuilder({
                                             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{filled} filled</span>
                                         )}
                                         {abnormal > 0 && (
-                                            <span className="text-xs bg-red-500/10 text-red-600 px-2 py-0.5 rounded-full">{abnormal} abnormal</span>
+                                            <span className="text-xs bg-red-500/10 text-red-600 dark:text-red-300 px-2 py-0.5 rounded-full">{abnormal} abnormal</span>
                                         )}
                                     </div>
                                     <Button type="button" variant="ghost" size="sm"

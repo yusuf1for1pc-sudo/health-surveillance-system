@@ -91,7 +91,9 @@ const App = () => (
               <Route path="/patient/history" element={<PatientHistory />} />
               <Route path="/patient/history/:id" element={<PatientRecordDetail />} />
               <Route path="/patient/prescriptions" element={<PatientPrescriptions />} />
+              <Route path="/patient/prescriptions/:id" element={<PatientRecordDetail />} />
               <Route path="/patient/reports" element={<PatientReports />} />
+              <Route path="/patient/reports/:id" element={<PatientRecordDetail />} />
               <Route path="/patient/health-card" element={<PatientHealthCard />} />
               <Route path="/patient/profile" element={<Profile />} />
 

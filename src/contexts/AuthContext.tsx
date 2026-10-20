@@ -1,3 +1,5 @@
+import { DEMO_ACCOUNTS, findDemoAccount, loadDemoSession, saveDemoSession } from '@/lib/demoAccounts';
+import { setCacheOwner, clearCache } from '@/lib/queryCache';
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { UserRole } from '@/lib/types';
@@ -59,9 +61,14 @@ export const getRoleRedirectPath = (role: UserRole): string => {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [loading, setLoading] = useState(true);
+    // A signed-in demo account is restored synchronously so there is no flash of the login redirect
+    const [user, setUser] = useState<AuthUser | null>(() => loadDemoSession());
+    const [loading, setLoading] = useState(() => loadDemoSession() === null);
     const skipAuthRedirect = useRef(false);
+    const signedOutRef = useRef(false);
+    // The data cache belongs to the signed-in user: empty at login, cleared on logout or when the user changes
+    useEffect(() => { setCacheOwner(user?.id ?? null); }, [user?.id]);
+
     const profileCache = useRef<{ role?: UserRole; organization_id?: string; full_name?: string; phone?: string }>({});
 
     // ─── Session Restoration ─────────────────────────
@@ -69,6 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         let loadingTimeout: ReturnType<typeof setTimeout>;
 
         const checkSession = async () => {
+            if (loadDemoSession()) { setLoading(false); return; } // demo session: no network
             if (isSupabaseConfigured()) {
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
@@ -151,6 +159,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     return;
                 }
 
+                if (event === 'SIGNED_IN') signedOutRef.current = false;
+                if (session?.user && signedOutRef.current) return;
+
                 if (session?.user) {
                     // Start with metadata
                     const metadata = session.user.user_metadata || {};
@@ -192,6 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         }
                     }
 
+                    if (signedOutRef.current) return; // signed out while the profile was loading
                     setUser({
                         id: session.user.id,
                         email: session.user.email || '',
@@ -221,13 +233,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // ─── Sign In (validates against Supabase Auth) ───
-    const signIn = async (email: string, password: string): Promise<{ error?: string; role?: string }> => {
+    const signInWithSupabase = async (email: string, password: string): Promise<{ error?: string; role?: string }> => {
         if (!isSupabaseConfigured()) {
             return { error: 'Authentication service is not configured.' };
         }
 
         // CRITICAL: Block onAuthStateChange from running during signIn
         skipAuthRedirect.current = true;
+        signedOutRef.current = false;
 
         try {
             setUser(null);
@@ -289,6 +302,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             skipAuthRedirect.current = false;
         }
+    };
+
+    // Every normal sign-in goes to Supabase. The built-in demo accounts try their real Supabase account
+    // first (real data; requests and approvals work) and only fall back to the offline demo session
+    // when Supabase is unreachable or rejects the login.
+    const signIn = async (email: string, password: string): Promise<{ error?: string; role?: string }> => {
+        const demo = findDemoAccount(email, password);
+        if (!demo) return signInWithSupabase(email, password);
+
+        if (isSupabaseConfigured()) {
+            try {
+                const real = await Promise.race([
+                    signInWithSupabase(email, password),
+                    new Promise<{ error: string }>((resolve) => setTimeout(() => resolve({ error: 'timeout' }), 8000)),
+                ]);
+                if (!real.error) return real;
+            } catch { /* fall through to the offline demo */ }
+        }
+
+        signedOutRef.current = false;
+        saveDemoSession(demo);
+        setUser(demo.user);
+        return { role: demo.user.role };
     };
 
     // ─── OTP Login ────────────────────────────────────────────────
@@ -396,46 +432,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // ─── Demo Access (Real Supabase Auth) ───────────
     const demoSignIn = async (email: string): Promise<{ role: string }> => {
-        // In a real scenario, these accounts should exist in Supabase Auth.
-        // We will try to sign them in with a default demo password.
-        const DEMO_PASSWORD = "password123";
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password: DEMO_PASSWORD
-        });
-
-        if (error) {
-            console.error("Demo login failed:", error);
-            // Fallback for purely local dev if seeds aren't run, BUT per requirements we should not mock.
-            // However, to prevent total lockout if user hasn't run seeds:
-            throw new Error(error.message);
-        }
-
-        if (data.user) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', data.user.id)
-                .maybeSingle();
-
-            const role = (profile?.role as UserRole) || 'patient';
-            setUser({
-                id: data.user.id,
-                email: data.user.email || '',
-                full_name: profile?.full_name || 'User',
-                role,
-                phone: profile?.phone,
-                organization_id: profile?.organization_id,
-            });
-            localStorage.removeItem('tempest_demo_user');
-            return { role };
-        }
-
-        throw new Error("Demo user not found");
+        const account = DEMO_ACCOUNTS.find(a => a.email.toLowerCase() === email.toLowerCase());
+        if (!account) throw new Error('Unknown demo account');
+        signedOutRef.current = false;
+        saveDemoSession(account);
+        setUser(account.user);
+        return { role: account.user.role };
     };
 
-    // ─── Finish Registration (set user after patient insert) ──
     const finishRegistration = async () => {
         if (isSupabaseConfigured()) {
             const { data: { session } } = await supabase.auth.getSession();
@@ -461,16 +465,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // ─── Sign Out ────────────────────────────────────
     const signOut = async () => {
-        try {
-            if (isSupabaseConfigured()) {
-                await supabase.auth.signOut();
+        const wasDemo = loadDemoSession() !== null;
+        // Block any in-flight profile fetch from re-setting the user after we sign out
+        signedOutRef.current = true;
+        clearCache();
+        setUser(null);
+        profileCache.current = {};
+        localStorage.removeItem('tempest_demo_user');
+
+        if (isSupabaseConfigured() && !wasDemo) {
+            // signOut() can hang on a slow/blocked network, so never wait on it for more than 2s.
+            const withTimeout = (p: Promise<unknown>) =>
+                Promise.race([p, new Promise((resolve) => setTimeout(resolve, 2000))]);
+            try {
+                await withTimeout(supabase.auth.signOut({ scope: 'local' }));
+                // Revoke the refresh token server-side in the background (best effort)
+                supabase.auth.signOut({ scope: 'global' }).catch(() => { });
+            } catch (error) {
+                console.error("Error signing out:", error);
             }
-        } catch (error) {
-            console.error("Error signing out:", error);
-        } finally {
-            localStorage.removeItem('tempest_demo_user');
-            setUser(null);
-            console.log("Local session cleared.");
+            // Make sure no persisted session survives, even if the call above failed or timed out
+            try {
+                Object.keys(localStorage)
+                    .filter((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
+                    .forEach((k) => localStorage.removeItem(k));
+            } catch { /* storage unavailable */ }
         }
     };
 

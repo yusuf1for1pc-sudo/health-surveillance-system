@@ -31,9 +31,9 @@ const AdminOrganizations = () => {
   };
 
   return (
-    <DashboardLayout role="admin">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <PageHeader title="Organizations" description="Manage registered healthcare organizations" />
+    <DashboardLayout role="admin" fit>
+      <div className="flex shrink-0 flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <PageHeader compact title="Organizations" description="Manage registered healthcare organizations" />
         <Button variant="outline" size="sm" onClick={() => refresh()} disabled={loading}>
           <RefreshCcw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh Data

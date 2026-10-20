@@ -3,6 +3,10 @@
  * Connects to the FastAPI backend running at localhost:8000
  */
 
+import { isDemoSession } from "@/lib/demoAccounts";
+import { demoMlGet, demoMlRecommend } from "@/lib/demoMl";
+import { cached } from "@/lib/queryCache";
+
 const ML_API_BASE = import.meta.env.VITE_ML_API_URL || "http://127.0.0.1:8000";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -79,14 +83,35 @@ export interface SituationReportResponse {
 /** Check if the ML Backend is online */
 export async function checkHealth(): Promise<boolean> {
     try {
-        const res = await fetch(`${ML_API_BASE}/`, { method: "GET" });
+        // Short timeout so a demo session never hangs waiting for a server that isn't there
+        const res = await fetch(`${ML_API_BASE}/`, { method: "GET", signal: AbortSignal.timeout(3000) });
         return res.ok;
     } catch {
         return false;
     }
 }
 
-async function fetchML<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
+/**
+ * Demo accounts use the real ML server when it is reachable and fall back to the built-in
+ * offline engine when it is not. Real accounts always use the server.
+ */
+function fetchML<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
+    // Repeat visits to a page reuse the last result instead of re-running the models
+    return cached<T>(`ml:${endpoint}:${JSON.stringify(params ?? {})}`, () => fetchMLUncached<T>(endpoint, params));
+}
+
+async function fetchMLUncached<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
+    if (isDemoSession()) {
+        try {
+            return await fetchMLReal<T>(endpoint, params, 6000);
+        } catch {
+            return demoMlGet(endpoint, params) as Promise<T>;
+        }
+    }
+    return fetchMLReal<T>(endpoint, params);
+}
+
+async function fetchMLReal<T>(endpoint: string, params?: Record<string, string | number>, timeoutMs?: number): Promise<T> {
     const url = new URL(endpoint, ML_API_BASE);
     if (params) {
         Object.entries(params).forEach(([k, v]) => {
@@ -96,7 +121,7 @@ async function fetchML<T>(endpoint: string, params?: Record<string, string | num
         });
     }
 
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : undefined);
     if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail || `ML API error: ${res.status}`);
@@ -227,6 +252,20 @@ export async function getRecommendedIntervention(
     city?: string,
     currentRValue?: number,
 ): Promise<InterventionRecommendation> {
+    if (isDemoSession()) {
+        try { return await recommendReal(disease, currentCases, city, currentRValue, 8000); }
+        catch { return demoMlRecommend({ disease, current_cases: currentCases, city }) as Promise<InterventionRecommendation>; }
+    }
+    return recommendReal(disease, currentCases, city, currentRValue);
+}
+
+async function recommendReal(
+    disease: string,
+    currentCases: number,
+    city?: string,
+    currentRValue?: number,
+    timeoutMs?: number,
+): Promise<InterventionRecommendation> {
     const res = await fetch(`${ML_API_BASE}/recommend-intervention`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,6 +275,7 @@ export async function getRecommendedIntervention(
             city: city || null,
             current_r_value: currentRValue || null,
         }),
+        ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));

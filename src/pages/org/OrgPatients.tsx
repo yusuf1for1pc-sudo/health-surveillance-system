@@ -112,8 +112,8 @@ const OrgPatients = () => {
   }, [orgId]);
 
   return (
-    <DashboardLayout role="org">
-      <PageHeader title="Patients" description="All patients registered under your organization" />
+    <DashboardLayout role="org" fit>
+      <PageHeader compact title="Patients" description="All patients registered under your organization" />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">

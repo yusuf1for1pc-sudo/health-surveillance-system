@@ -125,7 +125,7 @@ const StaffPatientCreate = () => {
         <div className="max-w-md mx-auto text-center">
           <div className="bg-card rounded-xl p-8 card-shadow">
             <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-300" />
             </div>
             <h2 className="text-xl font-semibold text-foreground">Patient Created</h2>
             <p className="text-sm text-muted-foreground mt-1">{createdPatient.name}</p>
@@ -157,16 +157,16 @@ const StaffPatientCreate = () => {
   return (
     <DashboardLayout role="staff">
       <PageHeader title="Add Patient" description="Register a new patient" />
-      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow max-w-2xl">
+      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow max-w-5xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <Label>Full Name <span className="text-red-500">*</span></Label>
+                <Label>Full Name <span className="text-red-500 dark:text-red-400">*</span></Label>
                 <Input placeholder="John Doe" className="mt-1" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               </div>
               <div>
-                <Label>Phone Number <span className="text-red-500">*</span></Label>
+                <Label>Phone Number <span className="text-red-500 dark:text-red-400">*</span></Label>
                 <div className="relative mt-1">
                   <div className="absolute left-3 top-2.5 text-sm font-medium text-muted-foreground">
                     +91
@@ -208,7 +208,7 @@ const StaffPatientCreate = () => {
 
             <div className="space-y-4">
               <div>
-                <Label>Date of Birth <span className="text-red-500">*</span></Label>
+                <Label>Date of Birth <span className="text-red-500 dark:text-red-400">*</span></Label>
                 <Input type="date" className="mt-1" value={dob} onChange={(e) => setDob(e.target.value)} required />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -280,15 +280,15 @@ const StaffPatientCreate = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <Label>Street Address <span className="text-red-500">*</span></Label>
+                <Label>Street Address <span className="text-red-500 dark:text-red-400">*</span></Label>
                 <Textarea placeholder="123 Main St" value={address} onChange={(e) => setAddress(e.target.value)} required />
               </div>
               <div>
-                <Label>Country <span className="text-red-500">*</span></Label>
+                <Label>Country <span className="text-red-500 dark:text-red-400">*</span></Label>
                 <Input placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)} required />
               </div>
               <div>
-                <Label>Pincode <span className="text-red-500">*</span></Label>
+                <Label>Pincode <span className="text-red-500 dark:text-red-400">*</span></Label>
                 <Input placeholder="ZIP/Pin" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
               </div>
             </div>

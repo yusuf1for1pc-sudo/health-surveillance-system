@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { logSurveillanceAccess } from "@/lib/accessLogger";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { Panel } from "@/components/layout/Modular";
 import TrendChart from "@/components/analytics/TrendChart";
 import { type MedicalRecord } from "@/lib/types";
 import {
@@ -58,12 +59,12 @@ function normalizeDiseaseName(raw: string): string {
 const TrendTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
-      <p className="font-semibold text-gray-700 mb-2">{label}</p>
+    <div className="bg-card border border-border rounded-lg shadow-lg p-3 text-xs">
+      <p className="font-semibold text-foreground mb-2">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 py-0.5">
           <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.stroke || p.fill }} />
-          <span className="text-gray-600">{p.dataKey}: </span>
+          <span className="text-foreground">{p.dataKey}: </span>
           <span className="font-medium text-gray-800">{p.value}</span>
         </div>
       ))}
@@ -142,6 +143,19 @@ const GovSurveillance = () => {
 
     return validRecords.filter(r => validPatientIds.has(r.patient_id));
   }, [validRecords, patients, state, city, ward]);
+
+  // The newest case in the data: every "last N days" window counts back from here, not from today,
+  // so the views stay meaningful when the data isn't from this week.
+  const dataAnchor = useMemo(() => {
+    let latest = 0;
+    filteredRecords.forEach((r) => {
+      const t = r.created_at ? new Date(r.created_at).getTime() : 0;
+      if (t > latest) latest = t;
+    });
+    return latest || Date.now();
+  }, [filteredRecords]);
+
+  const [matrixDays, setMatrixDays] = useState<number>(90); // 0 = all time
 
   useEffect(() => {
     getForecast(undefined, 14)
@@ -229,7 +243,7 @@ const GovSurveillance = () => {
 
   // Distribution donut (last 6 months from records)
   const distributionData = useMemo(() => {
-    const cutoff = subDays(new Date(), 180);
+    const cutoff = new Date(dataAnchor - 180 * 86400000);
     const recent = filteredRecords.filter(r => r.created_at && isAfter(parseISO(r.created_at), cutoff));
     const counts: Record<string, number> = {};
     recent.forEach(r => {
@@ -241,7 +255,7 @@ const GovSurveillance = () => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 7);
-  }, [filteredRecords]);
+  }, [filteredRecords, dataAnchor]);
 
   // ─── Extract Syndromic Unconfirmed Cases ─────────────────────
   // ─── Extract Syndromic Unconfirmed Cases ─────────────────────
@@ -269,50 +283,46 @@ const GovSurveillance = () => {
     return possibleCases.filter(r => validPatientIds.has(r.patient_id));
   }, [records, patients, state, city, ward]);
 
+  // Place names are matched case-insensitively ("Mumbai" and "mumbai" are one place)
+  const placeKey = (name?: string | null) =>
+    (name || "").trim().toLowerCase().replace(/\s*,\s*/g, ", ").replace(/\s+/g, " ");
+  const placeLabel = (key: string) => key.replace(/\b\w/g, (c) => c.toUpperCase());
+
   // Heatmap table logic
   const { heatmapCols, heatmapData, cityTotals, diseaseTotals, grandTotal } = useMemo(() => {
-    const cols = new Set<string>();
-    patients.forEach(p => {
-      let locName = "";
-      if (city && p.city?.toLowerCase() === city.toLowerCase() && p.ward_name) locName = p.ward_name;
-      else if (!city && p.city) locName = p.city;
-
-      if (locName && locName !== "Dombivli") {
-        cols.add(locName);
-      }
-    });
-    const colArray = Array.from(cols).sort();
-
+    const windowStart = matrixDays > 0 ? dataAnchor - matrixDays * 86400000 : 0;
     const data: Record<string, Record<string, number>> = {};
-    const cTotals: Record<string, number> = {};
+    const totals: Record<string, number> = {};
     const dTotals: Record<string, number> = {};
     let gTotal = 0;
+    ALLOWED_DISEASES.forEach((d) => (dTotals[d] = 0));
 
-    colArray.forEach(c => cTotals[c] = 0);
-    ALLOWED_DISEASES.forEach(d => dTotals[d] = 0);
-
-    const cutoff = subDays(new Date(), 90);
-    const recentRecords = filteredRecords.filter(r => r.created_at && isAfter(parseISO(r.created_at), cutoff));
-
-    recentRecords.forEach(r => {
-      const dis = normalizeDiseaseName(r.diagnosis || r.icd_label || "");
-      if (!ALLOWED_DISEASES.includes(dis)) return;
-
-      const p = patients.find(pat => pat.id === r.patient_id || pat.patient_id === r.patient_id);
-      if (!p) return;
-
-      const colKey = city ? p.ward_name : p.city;
-      if (colKey && colArray.includes(colKey)) {
-        if (!data[dis]) data[dis] = {};
-        data[dis][colKey] = (data[dis][colKey] || 0) + 1;
-        cTotals[colKey]++;
-        dTotals[dis]++;
-        gTotal++;
-      }
+    const patientById = new Map<string, (typeof patients)[number]>();
+    patients.forEach((pt) => {
+      patientById.set(pt.id, pt);
+      if (pt.patient_id) patientById.set(pt.patient_id, pt);
     });
 
-    return { heatmapCols: colArray, heatmapData: data, cityTotals: cTotals, diseaseTotals: dTotals, grandTotal: gTotal };
-  }, [filteredRecords, patients, city]);
+    filteredRecords.forEach((r) => {
+      if (!r.created_at || new Date(r.created_at).getTime() < windowStart) return;
+      const dis = normalizeDiseaseName(r.diagnosis || r.icd_label || "");
+      if (!ALLOWED_DISEASES.includes(dis)) return;
+      const pt = patientById.get(r.patient_id);
+      if (!pt) return;
+
+      // Columns are cities, or wards once a city is chosen
+      const col = placeKey(city ? pt.ward_name : pt.city);
+      if (!col || col === "dombivli") return;
+      (data[dis] ??= {})[col] = (data[dis][col] || 0) + 1;
+      totals[col] = (totals[col] || 0) + 1;
+      dTotals[dis]++;
+      gTotal++;
+    });
+
+    // Only areas that actually have cases, busiest first
+    const colArray = Object.keys(totals).sort((x, y) => totals[y] - totals[x]);
+    return { heatmapCols: colArray, heatmapData: data, cityTotals: totals, diseaseTotals: dTotals, grandTotal: gTotal };
+  }, [filteredRecords, patients, city, dataAnchor, matrixDays]);
 
   // Trends
   const { monthlyTrends, weeklyTrends, yMax } = useMemo(() => {
@@ -368,443 +378,361 @@ const GovSurveillance = () => {
       .map(([state, count]) => ({ state, current: count }));
   }, [validRecords, patients]);
 
+  const [tab, setTab] = useState<"overview" | "map" | "matrix" | "insights">("overview");
+
+  const chartTooltip = {
+    background: "hsl(var(--card))",
+    color: "hsl(var(--card-foreground))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: 2,
+    fontSize: 12,
+  };
+
+  const TABS: { key: typeof tab; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "map", label: "Map" },
+    { key: "matrix", label: "Disease matrix" },
+    { key: "insights", label: "Insights" },
+  ];
+
   return (
-    <DashboardLayout role="gov">
-      <div className="min-h-screen bg-gray-50">
-        {/* ─── Header ──────────────────────────────────── */}
-        <div className="px-6 pt-6 pb-4 flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Disease Surveillance</h1>
-            <p className="text-sm mt-0.5">
-              <span className="text-blue-500">Monitor disease trends</span>
-              <span className="text-gray-400"> and </span>
-              <span className="text-blue-500">patterns</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-xs font-semibold border border-emerald-400 text-emerald-600 px-2 py-0.5 rounded">
-              LIVE
-            </span>
-            <span className="text-xs text-gray-400">{filteredRecords.length} records · {patients.length} total patients</span>
-          </div>
+    <DashboardLayout role="gov" fit>
+      {/* Row 1: title left, area filter right (one line leaves more room for the views) */}
+      <div className="mb-2 flex shrink-0 flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+        <div className="shrink-0">
+          <h1 className="font-serif text-2xl font-medium leading-tight">Disease Surveillance</h1>
+          <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="rounded-sm border border-success/40 px-1.5 py-px text-[10px] font-medium uppercase tracking-wider text-success">Live</span>
+            {filteredRecords.length} records · {patients.length} patients
+          </p>
         </div>
-
-        <div className="px-6 pb-6 space-y-5">
-          {/* ─── Filters ──────────────────────────────────── */}
-          <div className="mb-6 mt-4">
-            <GeoFilterBar
-              state={state}
-              city={city}
-              ward={ward}
-              onStateChange={setState}
-              onCityChange={setCity}
-              onWardChange={setWard}
-            />
-          </div>
-
-          {/* ─── Stat cards ──────────────────────────────── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {topDiseases.map((card, i) => {
-              const colors = ["text-blue-500", "text-yellow-500", "text-red-500", "text-green-500"];
-              return (
-                <div key={card.disease} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                  <div className={`text-xs font-semibold mb-1 ${colors[i % colors.length]}`}>
-                    {card.disease.length > 25 ? card.disease.slice(0, 24) + "…" : card.disease}
-                  </div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-3xl font-bold text-gray-800">{card.cases}</span>
-                  </div>
-                  <div className="text-xs mt-1 flex items-center gap-1 text-gray-400">
-                    From live records
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ─── Disease Trends line chart ────────────────── */}
-          <div className="mb-6">
-            <ErrorBoundary title="Failed to load disease trends">
-              {loading ? <Skeleton className="h-[460px] w-full rounded-xl bg-slate-100" /> : <TrendChart records={filteredRecords} />}
-            </ErrorBoundary>
-          </div>
-
-          {/* ─── Top Diseases bar + Distribution donut ───── */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Top Diseases */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-blue-500 mb-4">Top Diseases (Live)</h3>
-              <ResponsiveContainer width="100%" height={230}>
-                <BarChart data={topDiseases.map(d => ({ name: d.disease.length > 12 ? d.disease.slice(0, 11) + '…' : d.disease, cases: d.cases }))} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 8, border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0/0.1)", fontSize: 12 }}
-                  />
-                  <Bar dataKey="cases" fill={BAR_COLOR} radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Distribution donut */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-blue-500 mb-4">Distribution</h3>
-              <div className="flex items-center gap-4">
-                <PieChart width={200} height={200}>
-                  <Pie
-                    data={distributionData.length > 0 ? distributionData : []}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ percent }) => `${(percent * 100).toFixed(0)}% `}
-                    labelLine={true}
-                  >
-                    {PIE_COLORS.map((color, i) => <Cell key={i} fill={color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 8, border: "none", fontSize: 12 }} />
-                </PieChart>
-                <div className="space-y-2 text-xs flex-1">
-                  {distributionData.map((d, i) => (
-                    <div key={d.name} className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      <span className="text-gray-500 text-[11px]">{d.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* ─── Geographic Distribution bar chart ───────── */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-blue-500">Geographic Distribution (State)</h3>
-            </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={stateDistribution} margin={{ top: 5, right: 10, bottom: 5, left: 0 }} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis
-                  dataKey="state"
-                  tick={({ x, y, payload }: any) => (
-                    <text x={x} y={y + 10} textAnchor="middle" fontSize={10} fill="#3b82f6">{payload.value}</text>
-                  )}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ borderRadius: 8, border: "none", fontSize: 12 }} />
-                <Bar dataKey="current" name="Current" fill={BAR_COLOR} radius={[3, 3, 0, 0]} barSize={14} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* ─── Disease Heatmap (w/ Map/Table toggle) ───── */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Header row with toggle */}
-            <div className="flex items-start justify-between p-5 pb-3">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800">
-                  {heatmapView === "table" ? "Disease Matrix" : "Geographic Map"}
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {heatmapView === "table"
-                    ? "Cases by disease × area"
-                    : "Real-time geographic heatmap and active clusters"}
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                {/* Map Layer Toggle (only visible on map view) */}
-                {heatmapView === "map" && (
-                  <div className="flex items-center gap-2 bg-gray-50 border rounded-lg p-1">
-                    <button
-                      onClick={() => setShowClusters(false)}
-                      className={`text-xs px-3 py-1 rounded-md transition-colors ${!showClusters ? "bg-white shadow-sm font-semibold text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-                    >
-                      Gradient Heatmap
-                    </button>
-                    <button
-                      onClick={() => setShowClusters(true)}
-                      className={`text-xs px-3 py-1 rounded-md transition-colors ${showClusters ? "bg-white shadow-sm font-semibold text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-                    >
-                      Active Clusters (DBSCAN)
-                    </button>
-                  </div>
-                )}
-
-                {/* View Mode Toggle */}
-                <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
-                  <button
-                    onClick={() => setHeatmapView("map")}
-                    title="Map View"
-                    className={`p-2 rounded-full transition-all ${heatmapView === "map"
-                      ? "bg-white shadow text-gray-700"
-                      : "text-gray-400 hover:text-gray-600"
-                      }`}
-                  >
-                    <MapIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setHeatmapView("table")}
-                    title="Table View"
-                    className={`p-2 rounded-full transition-all ${heatmapView === "table"
-                      ? "bg-white shadow text-gray-700"
-                      : "text-gray-400 hover:text-gray-600"
-                      }`}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {heatmapView === "map" ? (
-              <div className="flex flex-col">
-                {/* ── Timeline & Filter Control Panel ── */}
-                <div className="px-5 pb-2 pt-1 border-b border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-3 w-full md:w-auto">
-                    <label className="text-xs font-semibold text-slate-600 shrink-0">Filter Disease:</label>
-                    <select
-                      value={selectedDisease}
-                      onChange={(e) => setSelectedDisease(e.target.value)}
-                      className="text-sm border-gray-200 rounded-md py-1.5 focus:ring-blue-500 focus:border-blue-500 w-full md:w-[150px] bg-white shadow-sm"
-                    >
-                      <option value="All">All Diseases</option>
-                      {ALLOWED_DISEASES.map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex-1 flex items-center gap-4 w-full px-2">
-                    <button
-                      onClick={() => setIsPlaying(!isPlaying)}
-                      className="p-2 transition-all rounded-full bg-white border border-gray-200 shadow-sm hover:bg-slate-50 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </button>
-                    <div className="flex-1 flex flex-col pt-1">
-                      <div className="flex justify-between text-[10px] font-medium text-slate-500 mb-1 px-1">
-                        <span>Mar 2025</span>
-                        <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                          {format(new Date(sliderDate), "MMM dd, yyyy")}
-                        </span>
-                        <span>Mar 2026</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={MIN_DATE}
-                        max={MAX_DATE}
-                        step={24 * 60 * 60 * 1000} // 1 day
-                        value={sliderDate}
-                        onChange={(e) => setSliderDate(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Leaflet Map ── */}
-                <div className="h-[480px] relative w-full p-4">
-                  <ErrorBoundary title="Failed to load geographic heatmap">
-                    {loading ? (
-                      <Skeleton className="h-full w-full rounded-xl bg-slate-100" />
-                    ) : (
-                      <DiseaseHeatmap
-                        records={mapRecords}
-                        patients={patients}
-                        selectedState={state}
-                        selectedCity={city}
-                        selectedWard={ward}
-                        clusters={activeClusters}
-                        showClusters={showClusters}
-                      />
-                    )}
-                  </ErrorBoundary>
-                </div>
-              </div>
-            ) : (
-              /* ── Disease × City heatmap table ── */
-              <div className="px-5 pb-5 w-full">
-                {/* Low → High gradient legend */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xs text-gray-500">Low</span>
-                  <div className="h-3 w-32 rounded-full bg-gradient-to-r from-green-500 via-yellow-400 via-orange-400 to-red-500" />
-                  <span className="text-xs text-gray-500">High</span>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr>
-                        <th className="text-left text-gray-500 font-normal text-xs pb-3 pr-4 min-w-[110px]">Disease</th>
-                        {heatmapCols.map(col => (
-                          <th key={col} className="text-center pb-1 px-2 min-w-[90px]">
-                            <div className="text-blue-500 font-medium text-xs truncate max-w-[100px]">{col}</div>
-                            <div className="text-gray-400 text-[11px]">{cityTotals[col] || 0}</div>
-                          </th>
-                        ))}
-                        <th className="text-right font-semibold text-red-500 text-xs pb-3 pl-4 min-w-[50px]">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {ALLOWED_DISEASES.map(dis => (
-                        <tr key={dis} className="hover:bg-gray-50/60 transition-colors">
-                          <td className="py-2.5 pr-4 text-gray-700 text-xs font-medium truncate max-w-[110px]">
-                            {dis.length > 14 ? dis.slice(0, 13) + "…" : dis}
-                          </td>
-                          {heatmapCols.map(col => {
-                            const n = heatmapData[dis]?.[col] ?? 0;
-                            return (
-                              <td key={col} className="py-2 px-2 text-center">
-                                {n === 0 ? (
-                                  <span className="text-gray-400 text-sm">–</span>
-                                ) : (
-                                  <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-semibold ${badgeColor(n)}`}>
-                                    {n}
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="py-2 pl-4 text-right text-xs font-bold text-gray-700">
-                            {diseaseTotals[dis] || 0}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-                  <span className="text-xs text-gray-500">
-                    {ALLOWED_DISEASES.length} diseases across {heatmapCols.length} areas
-                  </span>
-                  <span className="text-xs font-medium text-gray-600">
-                    Total: <span className="text-gray-800 font-semibold">{grandTotal}</span> cases
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ─── Geographic Insights ──────────────────────── */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 h-[400px] flex flex-col">
-            <h3 className="text-sm font-semibold text-blue-500 mb-4 flex-shrink-0">
-              {city ? "Ward" : "City"} Insights
-            </h3>
-
-            {heatmapCols.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-                No insights available.
-              </div>
-            ) : (
-              <div className="flex-1 overflow-auto space-y-3 pr-2">
-                {heatmapCols.map(loc => {
-                  const totalCases = cityTotals[loc] || 0;
-                  if (totalCases === 0) return null;
-
-                  // Find top disease for this location
-                  let topDisease = "None";
-                  let topDiseaseCount = 0;
-                  ALLOWED_DISEASES.forEach(dis => {
-                    const count = heatmapData[dis]?.[loc] || 0;
-                    if (count > topDiseaseCount) {
-                      topDiseaseCount = count;
-                      topDisease = dis;
-                    }
-                  });
-
-                  // Simple rules-based insight text
-                  let insightText = `Monitor case volumes.`;
-                  if (topDisease === "Dengue" || topDisease === "Malaria" || topDisease === "Chikungunya") {
-                    insightText = `High ${topDisease} activity. Intensive vector control and breeding site elimination needed immediately.`;
-                  } else if (topDisease === "Typhoid" || topDisease === "Gastroenteritis") {
-                    insightText = `Waterborne disease alert. Inspect local water supply and promote water boiling advisories.`;
-                  } else if (topDisease === "Tuberculosis") {
-                    insightText = `Active TB transmission. Contact tracing and respiratory hygiene campaigns are recommended.`;
-                  } else if (topDisease === "Leptospirosis") {
-                    insightText = `Leptospirosis detected. Issue warnings regarding stagnant water and distribute prophylactic doxycycline if flooded.`;
-                  }
-
-                  return (
-                    <div key={loc} className="p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-sm text-slate-800">{loc}</span>
-                        <span className="text-xs bg-white px-2 py-0.5 rounded-full border border-slate-200 font-medium text-slate-600">
-                          {totalCases} Recent Cases
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs text-slate-500">
-                          <strong className="text-slate-700">Top Disease:</strong> {topDisease} ({topDiseaseCount} cases)
-                        </span>
-                        <p className="text-xs text-slate-600 mt-1 leading-relaxed bg-white p-2 rounded border border-slate-50 italic">
-                          " {insightText} "
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* ─── Early Warning: Syndromic Alerts Panel ───── */}
-          {syndromicCases.length > 0 && (
-            <div className="col-span-1 lg:col-span-2 bg-orange-50/50 rounded-xl border border-orange-200 overflow-hidden shadow-sm mt-4">
-              <div className="bg-orange-100/50 border-b border-orange-200 px-5 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-orange-700">
-                   <AlertTriangle className="h-5 w-5" />
-                  <h3 className="text-sm font-bold">Early Warning: Syndromic Alerts</h3>
-                </div>
-                <span className="text-xs font-semibold bg-orange-200 text-orange-800 px-2 py-1 rounded-full flex items-center gap-1">
-                  <Activity className="h-3 w-3" /> Live Detection
-                </span>
-              </div>
-              <div className="p-5">
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="flex-1 space-y-3">
-                     <p className="text-sm text-gray-700">
-                      The automated syndromic surveillance engine has detected a localized spike in severe clinical presentations preceding formal laboratory confirmation.
-                    </p>
-                    <div className="flex gap-4 items-center">
-                      <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-orange-100">
-                        <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Suspected Cases</div>
-                        <div className="text-2xl font-bold text-orange-600">{syndromicCases.length}</div>
-                      </div>
-                      <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-orange-100">
-                        <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Epicenter</div>
-                        <div className="text-sm font-bold text-gray-800 mt-1">
-                          {syndromicCases[0]?.ward_name || 'Nerul'}, {syndromicCases[0]?.city || 'Navi Mumbai'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="md:w-[40%] bg-white rounded-lg p-3 border border-orange-100 shadow-sm">
-                    <h4 className="text-xs font-bold text-gray-800 border-b border-gray-100 pb-2 mb-2">Clinical Profile (Dominant Symptoms)</h4>
-                    <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
-                      <li>Acute high-grade fever (103°F)</li>
-                      <li>Severe frontal headache & retro-orbital pain</li>
-                      <li>Intense myalgia/arthralgia ('breakbone fever')</li>
-                      <li>Mild petechial rash on extremities</li>
-                    </ul>
-                    <div className="mt-3 pt-2 border-t border-gray-100 flex items-center gap-2">
-                       <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                       <span className="text-xs font-semibold text-gray-800">Suspected Etiology: <span className="text-red-500">Dengue Fever</span></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="min-w-0 flex-1">
+          <GeoFilterBar state={state} city={city} ward={ward} onStateChange={setState} onCityChange={setCity} onWardChange={setWard} />
         </div>
       </div>
-    </DashboardLayout >
+
+      {/* Row 2: clearly highlighted view switcher, with the early-warning chip beside it */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+        <div className="inline-flex max-w-full gap-1 overflow-x-auto rounded-sm border bg-card p-1" role="tablist" aria-label="Surveillance views">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={`whitespace-nowrap rounded-[2px] px-4 py-1.5 text-sm font-medium transition-colors ${tab === t.key ? "bg-foreground text-background shadow-sm" : "text-foreground/70 hover:bg-muted hover:text-foreground"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {syndromicCases.length > 0 && (
+          <button
+            onClick={() => setTab("insights")}
+            title="Open the early-warning details"
+            className="ml-auto inline-flex min-w-0 items-center gap-2 rounded-sm border border-warning/40 bg-warning/10 px-3 py-1.5 text-left text-sm transition-colors hover:bg-warning/15"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+            <span className="truncate">
+              <b className="font-medium">Early warning</b> · {syndromicCases.length} suspected cases near {syndromicCases[0]?.ward_name || "Nerul"}, {syndromicCases[0]?.city || "Navi Mumbai"}
+            </span>
+            <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">Details →</span>
+          </button>
+        )}
+      </div>
+
+      {/* Disease counts: only on Overview, in one slim row */}
+      {tab === "overview" && (
+        <div className="mb-2 grid shrink-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(120px,1fr))]">
+          {topDiseases.map((card) => (
+            <div key={card.disease} className="relative flex items-baseline justify-between gap-2 rounded-sm border bg-card py-1.5 pl-3 pr-3">
+              <span className="absolute bottom-0 left-0 top-0 w-0.5 bg-role-accent" />
+              <span className="eyebrow truncate">{card.disease}</span>
+              <span className="font-serif text-xl font-medium leading-none">{card.cases}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="min-h-0 flex-1">
+        {/* ── Overview ── */}
+        {tab === "overview" && (
+          <div className="grid gap-4 lg:h-full lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+            <div className="min-w-0 lg:min-h-0">
+              <ErrorBoundary title="Failed to load disease trends">
+                {loading ? <Skeleton className="h-full min-h-[320px] w-full rounded-sm bg-muted" /> : <TrendChart records={filteredRecords} fill />}
+              </ErrorBoundary>
+            </div>
+
+            <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+              <Panel title="Top diseases (live)" bodyClassName="p-3">
+                <ResponsiveContainer width="100%" height={170}>
+                  <BarChart data={topDiseases.map((d) => ({ name: d.disease.length > 12 ? d.disease.slice(0, 11) + "…" : d.disease, cases: d.cases }))} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={chartTooltip} />
+                    <Bar dataKey="cases" fill={BAR_COLOR} radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Panel>
+
+              <Panel title="Distribution" bodyClassName="p-3">
+                <div className="flex items-center gap-3">
+                  <PieChart width={150} height={150}>
+                    <Pie data={distributionData.length > 0 ? distributionData : []} cx="50%" cy="50%" innerRadius={35} outerRadius={58} paddingAngle={2} dataKey="value">
+                      {PIE_COLORS.map((color, i) => <Cell key={i} fill={color} />)}
+                    </Pie>
+                    <Tooltip contentStyle={chartTooltip} />
+                  </PieChart>
+                  <div className="flex-1 space-y-1.5 text-xs">
+                    {distributionData.map((d, i) => (
+                      <div key={d.name} className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="truncate text-muted-foreground">{d.name}</span>
+                        <span className="ml-auto font-medium">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Panel>
+
+              <Panel title="Cases by state" bodyClassName="p-3">
+                <ResponsiveContainer width="100%" height={170}>
+                  <BarChart data={stateDistribution} margin={{ top: 5, right: 10, bottom: 5, left: 0 }} barGap={2}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="state" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} interval={0} angle={-30} textAnchor="end" height={50} />
+                    <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={chartTooltip} />
+                    <Bar dataKey="current" name="Current" fill={BAR_COLOR} radius={[2, 2, 0, 0]} barSize={14} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Panel>
+            </div>
+          </div>
+        )}
+
+        {/* ── Map ── */}
+        {tab === "map" && (
+          <Panel className="flex min-h-[420px] flex-col lg:h-full lg:min-h-0" bodyClassName="flex min-h-0 flex-1 flex-col gap-3 p-3">
+            <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center">
+              <select
+                value={selectedDisease}
+                onChange={(e) => setSelectedDisease(e.target.value)}
+                aria-label="Filter disease"
+                className="rounded-sm border border-border bg-card px-2 py-1.5 text-sm lg:w-44"
+              >
+                <option value="All">All diseases</option>
+                {ALLOWED_DISEASES.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  aria-label={isPlaying ? "Pause timeline" : "Play timeline"}
+                  className="shrink-0 rounded-sm border p-2 transition-colors hover:bg-muted/60"
+                >
+                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </button>
+                <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">Mar 2025</span>
+                <input
+                  type="range"
+                  min={MIN_DATE}
+                  max={MAX_DATE}
+                  step={24 * 60 * 60 * 1000}
+                  value={sliderDate}
+                  onChange={(e) => setSliderDate(Number(e.target.value))}
+                  className="h-1.5 min-w-0 flex-1 cursor-pointer accent-foreground"
+                  aria-label="Timeline"
+                />
+                <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">Mar 2026</span>
+                <span className="shrink-0 rounded-sm border px-2 py-0.5 text-xs font-medium">{format(new Date(sliderDate), "MMM dd, yyyy")}</span>
+              </div>
+
+              <div className="flex shrink-0 rounded-sm border p-0.5">
+                <button onClick={() => setShowClusters(false)} className={`rounded-[2px] px-3 py-1 text-xs ${!showClusters ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>Heatmap</button>
+                <button onClick={() => setShowClusters(true)} className={`rounded-[2px] px-3 py-1 text-xs ${showClusters ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>Clusters</button>
+              </div>
+            </div>
+
+            <div className="relative min-h-[320px] flex-1">
+              <ErrorBoundary title="Failed to load geographic heatmap">
+                {loading ? (
+                  <Skeleton className="h-full w-full rounded-sm bg-muted" />
+                ) : (
+                  <DiseaseHeatmap
+                    records={mapRecords}
+                    patients={patients}
+                    selectedState={state}
+                    selectedCity={city}
+                    selectedWard={ward}
+                    clusters={activeClusters}
+                    showClusters={showClusters}
+                    minHeight={320}
+                  />
+                )}
+              </ErrorBoundary>
+            </div>
+          </Panel>
+        )}
+
+        {/* ── Disease matrix ── */}
+        {tab === "matrix" && (
+          <Panel
+            className="flex min-h-[360px] flex-col lg:h-full lg:min-h-0"
+            bodyClassName="flex min-h-0 flex-1 flex-col p-0"
+            title="Cases by disease and area"
+            description={matrixDays > 0 ? `Cases in the ${matrixDays} days up to ${format(new Date(dataAnchor), "d MMM yyyy")}` : "All recorded cases"}
+            action={
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex rounded-sm border p-0.5" role="group" aria-label="Time window">
+                  {[{ d: 30, l: "30 days" }, { d: 90, l: "90 days" }, { d: 365, l: "1 year" }, { d: 0, l: "All" }].map((o) => (
+                    <button
+                      key={o.d}
+                      onClick={() => setMatrixDays(o.d)}
+                      aria-pressed={matrixDays === o.d}
+                      className={`rounded-[2px] px-2.5 py-1 text-xs transition-colors ${matrixDays === o.d ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+                <span className="hidden items-center gap-2 text-xs text-muted-foreground md:flex">
+                  Low <span className="h-2.5 w-20 rounded-full bg-gradient-to-r from-green-500 via-yellow-400 via-orange-400 to-red-500" /> High
+                </span>
+              </div>
+            }
+          >
+            <div className="min-h-0 flex-1 overflow-auto">
+              {heatmapCols.length === 0 && (
+                <p className="p-6 text-sm text-muted-foreground">No cases in this window. Try a longer period or clear the area filter.</p>
+              )}
+              <table className={`w-full text-sm ${heatmapCols.length === 0 ? "hidden" : ""}`}>
+                <thead className="sticky top-0 z-10 bg-card">
+                  <tr className="border-b">
+                    <th className="min-w-[120px] px-4 py-2 text-left text-xs font-normal text-muted-foreground">Disease</th>
+                    {heatmapCols.map((col) => (
+                      <th key={col} className="min-w-[90px] px-2 py-2 text-center">
+                        <div className="max-w-[100px] truncate text-xs font-medium">{placeLabel(col)}</div>
+                        <div className="text-[11px] text-muted-foreground">{cityTotals[col] || 0}</div>
+                      </th>
+                    ))}
+                    <th className="min-w-[60px] px-4 py-2 text-right text-xs font-semibold text-danger">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {ALLOWED_DISEASES.map((dis) => (
+                    <tr key={dis} className="transition-colors hover:bg-muted/50">
+                      <td className="px-4 py-2 text-xs font-medium">{dis}</td>
+                      {heatmapCols.map((col) => {
+                        const n = heatmapData[dis]?.[col] ?? 0;
+                        return (
+                          <td key={col} className="px-2 py-1.5 text-center">
+                            {n === 0 ? (
+                              <span className="text-sm text-muted-foreground">–</span>
+                            ) : (
+                              <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${badgeColor(n)}`}>{n}</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-2 text-right text-xs font-bold">{diseaseTotals[dis] || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex shrink-0 items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+              <span>{ALLOWED_DISEASES.length} diseases across {heatmapCols.length} areas</span>
+              <span>Total <b className="text-foreground">{grandTotal}</b> cases</span>
+            </div>
+          </Panel>
+        )}
+
+        {/* ── Insights ── */}
+        {tab === "insights" && (
+          <div className="space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
+            {syndromicCases.length > 0 && (
+              <Panel
+                title="Early warning: syndromic alert"
+                icon={<AlertTriangle className="h-5 w-5 text-warning" />}
+                className="border-warning/40 bg-warning/5"
+                action={<span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Activity className="h-3 w-3" /> Live detection</span>}
+                bodyClassName="grid gap-4 p-4 md:grid-cols-[1fr_1fr]"
+              >
+                <div className="space-y-3 text-sm">
+                  <p>A localized spike in severe clinical presentations was detected before laboratory confirmation.</p>
+                  <div className="flex gap-3">
+                    <div className="rounded-sm border bg-card px-3 py-2">
+                      <p className="eyebrow">Suspected cases</p>
+                      <p className="font-serif text-2xl text-warning">{syndromicCases.length}</p>
+                    </div>
+                    <div className="rounded-sm border bg-card px-3 py-2">
+                      <p className="eyebrow">Epicenter</p>
+                      <p className="mt-1 text-sm font-medium">{syndromicCases[0]?.ward_name || "Nerul"}, {syndromicCases[0]?.city || "Navi Mumbai"}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-sm border bg-card p-3 text-xs">
+                  <p className="eyebrow mb-2">Dominant symptoms</p>
+                  <ul className="list-disc space-y-1 pl-4">
+                    <li>Acute high-grade fever (103°F)</li>
+                    <li>Severe frontal headache &amp; retro-orbital pain</li>
+                    <li>Intense myalgia/arthralgia</li>
+                    <li>Mild petechial rash on extremities</li>
+                  </ul>
+                  <p className="mt-2 border-t pt-2">Suspected etiology: <b className="text-danger">Dengue fever</b></p>
+                </div>
+              </Panel>
+            )}
+
+            <div>
+              <h2 className="eyebrow mb-2 px-1">{city ? "Ward" : "City"} insights</h2>
+              {heatmapCols.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No insights available.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {heatmapCols.map((loc) => {
+                    const totalCases = cityTotals[loc] || 0;
+                    if (totalCases === 0) return null;
+
+                    let topDisease = "None";
+                    let topDiseaseCount = 0;
+                    ALLOWED_DISEASES.forEach((dis) => {
+                      const count = heatmapData[dis]?.[loc] || 0;
+                      if (count > topDiseaseCount) { topDiseaseCount = count; topDisease = dis; }
+                    });
+
+                    let insightText = "Monitor case volumes.";
+                    if (topDisease === "Dengue" || topDisease === "Malaria" || topDisease === "Chikungunya") {
+                      insightText = `High ${topDisease} activity. Intensive vector control and breeding site elimination needed immediately.`;
+                    } else if (topDisease === "Typhoid" || topDisease === "Gastroenteritis") {
+                      insightText = "Waterborne disease alert. Inspect local water supply and promote water boiling advisories.";
+                    } else if (topDisease === "Tuberculosis") {
+                      insightText = "Active TB transmission. Contact tracing and respiratory hygiene campaigns are recommended.";
+                    } else if (topDisease === "Leptospirosis") {
+                      insightText = "Leptospirosis detected. Warn about stagnant water and distribute prophylactic doxycycline if flooded.";
+                    }
+
+                    return (
+                      <div key={loc} className="rounded-sm border bg-card p-3">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="truncate font-medium">{placeLabel(loc)}</span>
+                          <span className="shrink-0 rounded-sm border px-1.5 py-0.5 text-[11px] text-muted-foreground">{totalCases} cases</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground"><b className="font-medium text-foreground">Top:</b> {topDisease} ({topDiseaseCount})</p>
+                        <p className="mt-1.5 text-xs italic leading-relaxed text-muted-foreground">{insightText}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
   );
 };
 

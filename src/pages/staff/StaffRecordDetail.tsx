@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
+import { Panel, PanelGrid, Field } from "@/components/layout/Modular";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Download, FileText, Pill, Loader2, ShieldCheck, User, Calendar, Stethoscope, FileOutput, Plus } from "lucide-react";
+import { Download, FileText, Pill, Loader2, ShieldCheck, Calendar, Stethoscope, FileOutput, Plus, ChevronRight, ArrowLeft, ArrowUpRight, Hash, Printer } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -157,160 +158,181 @@ const StaffRecordDetail = () => {
     }
   };
 
+  const isRx = record.record_type === "Prescription";
+  const isLab = record.record_type === "Lab Report";
+
   return (
-    <DashboardLayout role="staff">
-      <div className="max-w-4xl mx-auto pb-10">
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Medical Record Details</h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-green-600" />
-              Confidential • Authorized Access Only
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => navigate("/staff/records")}>Back to Records</Button>
-        </div>
+    <DashboardLayout role="staff" fit>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* Breadcrumb */}
+        <nav className="mb-3 flex shrink-0 items-center gap-2 text-sm text-muted-foreground" aria-label="Breadcrumb">
+          <Link to="/staff/records" className="inline-flex items-center gap-1.5 hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Records
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="truncate text-foreground">{record.title}</span>
+        </nav>
 
-        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-          {/* Header / Banner */}
-          <div className="bg-primary/5 border-b px-6 py-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-full">
-                <User className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">{patient?.full_name || "Unknown Patient"}</h2>
-                <span className="text-sm text-muted-foreground">ID: {patient?.patient_id || "—"}</span>
-              </div>
-            </div>
-            <div className="text-right sm:text-left">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>Date: {new Date(record.created_at).toLocaleDateString()}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                <Stethoscope className="w-4 h-4" />
-                <span>Dr: {record.creator_name}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 space-y-8">
-            {/* Clinical Info Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Record Type</span>
-                  <div className="text-foreground font-medium mt-1">{record.record_type}</div>
+        <PanelGrid className="lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)]">
+          {/* Main column scrolls on its own */}
+          <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 print:!overflow-visible">
+            <Panel bodyClassName="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <span className="inline-block rounded-sm border border-foreground/30 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider">{record.record_type}</span>
+                <h1 className="mt-2 font-serif text-2xl font-medium leading-tight">{record.title}</h1>
+                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4" />{new Date(record.created_at).toLocaleDateString()}</span>
+                  <span className="inline-flex items-center gap-1.5"><Stethoscope className="h-4 w-4" />{record.creator_name}</span>
+                  {record.icd_code && <span className="inline-flex items-center gap-1.5"><Hash className="h-4 w-4" />{record.icd_code} · {record.icd_label}</span>}
                 </div>
-                <div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title</span>
-                  <div className="text-foreground font-medium mt-1">{record.title}</div>
-                </div>
-                {record.icd_code && (
-                  <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">ICD Diagnosis</span>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded border border-blue-200">{record.icd_code}</span>
-                      <span className="text-foreground">{record.icd_label}</span>
-                    </div>
-                  </div>
-                )}
               </div>
+              {!isLab && (
+                <Button variant="outline" size="sm" className="gap-2 print:hidden" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4" /> Print
+                </Button>
+              )}
+            </Panel>
 
-              <div className="space-y-4">
+            {(record.diagnosis || record.description) && (
+              <Panel title="Clinical summary" bodyClassName="grid gap-4 md:grid-cols-2">
                 {record.diagnosis && (
                   <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clinical Description / Findings</span>
-                    <p className="text-foreground mt-1 whitespace-pre-wrap bg-muted/20 p-3 rounded-lg text-sm border">{record.diagnosis}</p>
+                    <p className="eyebrow mb-1.5">Findings</p>
+                    <p className="whitespace-pre-wrap text-sm">{record.diagnosis}</p>
                   </div>
                 )}
                 {record.description && (
                   <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additional Notes</span>
-                    <p className="text-foreground mt-1 whitespace-pre-wrap text-sm">{record.description}</p>
+                    <p className="eyebrow mb-1.5">Notes</p>
+                    <p className="whitespace-pre-wrap text-sm">{record.description}</p>
                   </div>
                 )}
-              </div>
-            </div>
+              </Panel>
+            )}
 
-            {/* Horizontal Divider */}
-            <div className="border-t"></div>
-
-            {/* Lab Report Viewer */}
-            {record.record_type === 'Lab Report' && (
-              <div className="space-y-4">
+            {isLab && (
+              <Panel title="Lab results">
                 {loadingLabReport ? (
-                  <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                  <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                 ) : labReport ? (
                   <LabReportViewer labReport={labReport} patientName={patient?.full_name} recordDate={record.created_at} />
                 ) : (
-                  <p className="text-sm text-muted-foreground italic">No lab report data found for this record.</p>
+                  <p className="text-sm italic text-muted-foreground">No lab report data found for this record.</p>
                 )}
-              </div>
+              </Panel>
             )}
 
-            {/* Prescriptions */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-green-100 text-green-700 rounded-lg">
-                  <Pill className="w-5 h-5" />
-                </div>
-                <h3 className="font-semibold text-lg text-foreground">Prescribed Medications</h3>
-              </div>
-
-              {loadingPrescriptions ? (
-                <div className="flex justify-center py-4"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-              ) : prescriptions.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">No medications prescribed in this record.</p>
-              ) : (
-                <div className="grid gap-3">
-                  {prescriptions.map((med) => (
-                    <div key={med.id} className="group relative border rounded-lg p-4 bg-card">
-                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                        <div>
-                          <div className="font-semibold text-base">{med.medicine_name} <span className="text-muted-foreground font-normal ml-1">({med.dosage})</span></div>
-                          <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-4">
-                            <span><span className="font-medium text-foreground/80">Take:</span> {formatFrequency(med.frequency)}</span>
-                            <span><span className="font-medium text-foreground/80">Duration:</span> {med.duration}</span>
+            {(isRx || prescriptions.length > 0) && (
+              <Panel
+                title="Prescribed medications"
+                icon={<Pill className="h-5 w-5" />}
+                bodyClassName="p-0"
+                action={
+                  <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1.5 print:hidden"><Plus className="h-4 w-4" />Add medicine</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Add medicine</DialogTitle></DialogHeader>
+                      <div className="grid gap-4 py-2">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <Label>Medicine name</Label>
+                            <Input className="mt-1.5" value={newMed.name} onChange={(e) => setNewMed({ ...newMed, name: e.target.value })} placeholder="e.g. Paracetamol" />
+                          </div>
+                          <div>
+                            <Label>Dosage</Label>
+                            <Input className="mt-1.5" value={newMed.dosage} onChange={(e) => setNewMed({ ...newMed, dosage: e.target.value })} placeholder="e.g. 500mg" />
                           </div>
                         </div>
-                        <div className="text-xs font-medium px-2 py-1 bg-muted rounded self-start sm:self-center text-muted-foreground">Prescribed</div>
+                        <div>
+                          <Label>When to take</Label>
+                          <div className="mt-1.5 flex flex-wrap gap-2">
+                            {(["morning", "afternoon", "evening", "night"] as const).map((k) => (
+                              <button
+                                key={k}
+                                type="button"
+                                onClick={() => toggleFrequency(k)}
+                                className={`rounded-sm border px-3 py-1.5 text-sm capitalize transition-colors ${newMed.frequency[k] ? "border-foreground bg-foreground text-background" : "hover:bg-muted/60"}`}
+                              >
+                                {k}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                        <Button onClick={handleAddMedicine} disabled={adding || !newMed.name}>
+                          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add medicine"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                }
+              >
+                {loadingPrescriptions ? (
+                  <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : prescriptions.length === 0 ? (
+                  <p className="p-4 text-sm italic text-muted-foreground">No medications prescribed in this record.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {prescriptions.map((med) => (
+                      <li key={med.id} className="px-4 py-3">
+                        <p className="font-medium">{med.medicine_name} <span className="font-normal text-muted-foreground">· {med.dosage}</span></p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">Take: {formatFrequency(med.frequency)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            )}
 
-            {/* Attachments */}
             {record.attachment_name && (
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
-                    <FileOutput className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-semibold text-lg text-foreground">Attachments</h3>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <FileText className="w-8 h-8 text-primary/70" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-foreground block truncate">{record.attachment_name}</span>
+              <Panel title="Attachments" icon={<FileOutput className="h-5 w-5" />}>
+                <div className="flex items-center gap-3 rounded-sm border bg-muted/30 p-3">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{record.attachment_name}</span>
                     <span className="text-xs text-muted-foreground">Document</span>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => alert("Mock Download: " + record.attachment_name)}>
-                    <Download className="w-4 h-4 mr-2" /> Download
+                    <Download className="mr-2 h-4 w-4" /> Download
                   </Button>
                 </div>
-              </div>
+              </Panel>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="bg-muted/20 border-t px-6 py-3 text-xs text-center text-muted-foreground">
-            This record is a confidential medical document. Unauthorized access is prohibited.
-          </div>
-        </div>
+          {/* Side column */}
+          <aside className="space-y-4 lg:min-h-0 lg:overflow-y-auto print:hidden">
+            <Panel
+              title="Patient"
+              bodyClassName="py-1"
+              action={patient?.id ? (
+                <Link to={`/staff/patients/${patient.id}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                  Open <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              ) : undefined}
+            >
+              <Field inline label="Name" value={patient?.full_name || "Unknown"} />
+              <Field inline label="ID" value={patient?.patient_id || "—"} />
+              <Field inline label="Gender" value={patient?.gender || "—"} />
+              <Field inline label="Blood" value={patient?.blood_type || "—"} />
+            </Panel>
+
+            <Panel title="Record" bodyClassName="py-1">
+              <Field inline label="Type" value={record.record_type} />
+              <Field inline label="Date" value={new Date(record.created_at).toLocaleDateString()} />
+              <Field inline label="By" value={record.creator_name || "—"} />
+            </Panel>
+
+            <p className="flex items-start gap-2 px-1 text-xs text-muted-foreground">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+              Confidential medical record. Authorized access only.
+            </p>
+          </aside>
+        </PanelGrid>
       </div>
     </DashboardLayout>
   );

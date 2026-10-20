@@ -1,39 +1,39 @@
+import { useBackToLanding } from "@/hooks/use-back-to-landing";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, getRoleRedirectPath } from "@/contexts/AuthContext";
+import { DEMO_ACCOUNTS } from "@/lib/demoAccounts";
 import { Stethoscope, User, Shield, Building2, Activity, ChevronLeft } from "lucide-react";
 
-const demoAccounts = [
-  { email: "Doom@doc.com", password: "123456", label: "Doctor", icon: Stethoscope, color: "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200" },
-  { email: "Tony@patient.com", password: "123456", label: "Patient", icon: User, color: "bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-200" },
-  { email: "admin@tempest.com", password: "admin123", label: "Admin", icon: Shield, color: "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-200" },
-  { email: "sion@hospital.com", password: "123456", label: "Org Admin", icon: Building2, color: "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200" },
-  { email: "gov@gov.mail", password: "gov123", label: "Government", icon: Activity, color: "bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-200" },
-];
+const demoIcons: Record<string, typeof User> = {
+  Doctor: Stethoscope,
+  Patient: User,
+  "Org Admin": Building2,
+  Admin: Shield,
+  Government: Activity,
+};
+const demoAccounts = DEMO_ACCOUNTS.map((a) => ({ ...a, icon: demoIcons[a.label] ?? User }));
 
 
 
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+import ComicStory from "@/components/auth/ComicStory";
 
 const Login = () => {
+  useBackToLanding();
   const navigate = useNavigate();
-  const { signIn, demoSignIn, sendOtp, verifyOtp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // OTP State
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
 
   // If user is already authenticated, redirect to their dashboard
   // They can only see this page after signing out
@@ -79,230 +79,129 @@ const Login = () => {
     }
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setOtpLoading(true);
-    try {
-      const fullPhone = phone.startsWith("+") ? phone : `+91${phone}`;
-      const result = await sendOtp(fullPhone);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setOtpSent(true);
-      }
-    } catch {
-      setError("Failed to send code.");
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setOtpLoading(true);
-    try {
-      const fullPhone = phone.startsWith("+") ? phone : `+91${phone}`;
-      const result = await verifyOtp(fullPhone, otp);
-      if (result.error) {
-        setError(result.error);
-      } else if (result.role) {
-        navigate(getRoleRedirectPath(result.role as any), { replace: true });
-      }
-    } catch {
-      setError("Failed to verify code.");
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
 
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[url('/bg-abstract-top.png')] bg-cover bg-center bg-no-repeat bg-fixed p-4">
-      {/* Main Glassmorphism Card (1100x650) */}
-      <div className="w-full max-w-[1100px] h-full max-h-[750px] lg:h-[650px] bg-white/40 backdrop-blur-md rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col lg:flex-row overflow-hidden z-10 relative">
-        
-        {/* Left Pane: Login Form (Scrollable) */}
-        <div className="w-full lg:w-1/2 h-full overflow-y-auto p-6 sm:p-10 relative flex flex-col items-center justify-center bg-white/60">
-          <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <Link to="/" className="inline-flex items-center gap-2 text-sm text-[#3b82f6] font-medium hover:text-[#1e3a8a] transition-colors">
-                <ChevronLeft className="w-4 h-4" />
-                Back to Home
-              </Link>
+    <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      {/* Form side: full height, scrolls with the page instead of inside a box */}
+      <div className="auth-enter flex min-h-screen flex-col px-6 py-6 sm:px-12 lg:px-16 xl:px-24">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <ChevronLeft className="h-4 w-4" /> Back to Home
+          </Link>
+          <ThemeToggle />
+        </div>
+
+        <div className="mx-auto my-auto w-full max-w-md py-10">
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-foreground">
+              <span className="font-serif text-xl font-semibold text-background">T</span>
             </div>
-            <div className="inline-flex items-center gap-2 mb-4 justify-center">
-              <div className="w-8 h-8 rounded-lg bg-[#1e3a8a] flex items-center justify-center">
-                <span className="text-white font-bold text-sm">T</span>
-              </div>
-              <span className="font-semibold text-xl text-[#1e3a8a]">Tempest</span>
-            </div>
-            <h1 className="text-2xl font-bold text-[#1e3a8a]">Welcome back</h1>
-            <p className="text-[#3b82f6] font-medium mt-1">Sign in to your account</p>
+            <span className="font-serif text-2xl font-semibold tracking-wide">Tempest</span>
           </div>
 
-        <Tabs defaultValue="email" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="email">Email & Password</TabsTrigger>
-            <TabsTrigger value="phone">Phone OTP</TabsTrigger>
-          </TabsList>
+          <p className="eyebrow mb-3">Sign in</p>
+          <h1 className="font-serif text-5xl font-medium leading-none">Welcome back</h1>
+          <p className="mb-8 mt-3 text-muted-foreground">Sign in to your account to continue.</p>
 
-          <TabsContent value="email">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" required />
-              </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+          <Tabs defaultValue="email" className="w-full">
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="phone">
-            {!otpSent ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
+            <TabsContent value="email">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5" required />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <Link to="/forgot-password" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Forgot password?</Link>
+                  </div>
                   <div className="relative mt-1.5">
-                    <div className="absolute left-3 top-2.5 text-sm font-medium text-muted-foreground">
-                      +91
-                    </div>
                     <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="98765 43210"
-                      value={phone}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setPhone(val);
-                      }}
-                      className="pl-11"
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button type="submit" className="w-full" disabled={otpLoading || phone.length < 10}>
-                  {otpLoading ? "Sending Code..." : "Send Login Code"}
+
+                {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+
+                <Button type="submit" className="h-11 w-full" disabled={loading}>
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div>
-                  <Label htmlFor="otp">Enter 6-digit Code</Label>
-                  <Input
-                    id="otp"
-                    type="text"
-                    placeholder="123456"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="mt-1.5"
-                    required
-                  />
-                </div>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button type="submit" className="w-full" disabled={otpLoading || otp.length < 6}>
-                  {otpLoading ? "Verifying..." : "Verify & Login"}
-                </Button>
-                <button type="button" onClick={() => setOtpSent(false)} className="text-sm text-primary w-full mt-2 hover:underline">
-                  Use a different phone number
+            </TabsContent>
+          </Tabs>
+
+          {/* Demo access: one compact row */}
+          <div className="mt-8">
+            <div className="relative mb-4 flex items-center">
+              <div className="flex-1 border-t" />
+              <span className="eyebrow px-3">Quick demo access</span>
+              <div className="flex-1 border-t" />
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {demoAccounts.map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleDemoLogin(acc.email, acc.password)}
+                  title={`Sign in as ${acc.label}`}
+                  className="flex flex-col items-center gap-1.5 rounded-sm border border-foreground/25 px-1 py-3 text-[11px] font-medium transition-all hover:-translate-y-0.5 hover:bg-foreground hover:text-background disabled:opacity-50"
+                >
+                  <acc.icon className="h-[18px] w-[18px]" />
+                  <span className="max-w-full truncate">{acc.label}</span>
                 </button>
-              </form>
-            )}
-          </TabsContent>
-        </Tabs>
-
-
-
-
-        {/* Demo Quick Login */}
-        <div className="mt-6">
-          <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/60" /></div>
-            <div className="relative flex justify-center"><span className="bg-white/80 backdrop-blur-sm rounded-full px-3 py-0.5 text-xs text-[#3b82f6] font-medium shadow-sm">Quick Demo Access</span></div>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                disabled={loading}
-                onClick={() => handleDemoLogin(acc.email, acc.password)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all ${acc.color}`}
-              >
-                <acc.icon className="w-5 h-5" />
-                {acc.label}
-              </button>
-            ))}
-          </div>
+
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            New here?{" "}
+            <Link to="/register/patient" className="font-semibold text-foreground underline-offset-4 hover:underline">Create account</Link>
+            {" · "}
+            <Link to="/register/organization" className="font-semibold text-foreground underline-offset-4 hover:underline">Register organization</Link>
+          </p>
         </div>
 
-        <div className="mt-4 text-center">
-          <Link to="/forgot-password" className="text-sm text-[#1e3a8a] font-bold hover:underline">Forgot password?</Link>
-        </div>
-        <div className="mt-4 text-center text-sm text-[#3b82f6] font-medium">
-          Don't have an account?{" "}
-          <Link to="/register/patient" className="text-[#1e3a8a] font-bold hover:underline">Create Account</Link>
-          {" · "}
-          <Link to="/register/organization" className="text-[#1e3a8a] font-bold hover:underline">Register Organization</Link>
-        </div>
-
-        <div className="mt-8 pt-4 border-t border-white/60 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-            className="text-xs text-red-500 hover:text-red-700 font-medium hover:underline transition-all"
-          >
-            Trouble logging in? Click here to Reset App
-          </button>
-        </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => { localStorage.clear(); window.location.reload(); }}
+          className="mx-auto text-xs text-muted-foreground underline-offset-4 hover:text-destructive hover:underline"
+        >
+          Trouble logging in? Reset app
+        </button>
       </div>
 
-      {/* Right Pane: Welcome Banner / Branding */}
-      <div className="hidden lg:flex w-1/2 bg-white/10 flex-col items-center justify-center relative p-12 text-center overflow-hidden border-l border-white/20">
-        <h2 className="text-4xl lg:text-5xl font-extrabold text-[#0f2a58] mb-6 tracking-tight drop-shadow-sm">WELCOME BACK</h2>
-        <p className="text-xl lg:text-2xl text-[#1e3a8a] font-medium max-w-md leading-relaxed drop-shadow-sm opacity-90">
+      {/* Comic side: a flip-through story about Tempest (fixed charcoal, so the page always reads as ink on paper) */}
+      <aside className="auth-aside relative hidden flex-col justify-between overflow-hidden bg-[#1c1c1c] p-10 text-[#e8e2d8] lg:sticky lg:top-0 lg:flex lg:h-screen xl:p-14">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] opacity-60">Tempest · Health surveillance</p>
+          <h2 className="mt-3 font-serif text-4xl font-medium leading-[1.05] xl:text-5xl">Welcome back.</h2>
+        </div>
+
+        <ComicStory />
+
+        <p className="font-script text-2xl leading-snug opacity-90 xl:text-3xl [@media(max-height:760px)]:hidden">
           You're just one step away from a next-generation health surveillance experience.
         </p>
-      </div>
+      </aside>
     </div>
-  </div>
   );
 };
 

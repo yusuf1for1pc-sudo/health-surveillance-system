@@ -15,19 +15,19 @@ const CDSSPanel: React.FC<CDSSPanelProps> = ({ patient, records }) => {
 
   if (!hasInsights) {
     return (
-      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800/50 card-shadow relative overflow-hidden">
+      <div className="bg-card rounded-sm p-5 border border-border card-shadow relative overflow-hidden">
         {/* Decorative background element */}
-        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-foreground/5 rounded-sm blur-2xl"></div>
         
         <div className="flex items-center gap-3 mb-2 relative z-10">
-          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
-            <Brain className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-2 bg-muted rounded-sm">
+            <Brain className="w-5 h-5 text-foreground" />
           </div>
-          <h3 className="font-semibold text-indigo-900 dark:text-indigo-100 flex items-center gap-2">
-            AI Clinical Assistant <span className="text-[10px] bg-indigo-200 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Active</span>
+          <h3 className="font-semibold text-foreground flex items-center gap-2">
+            AI Clinical Assistant <span className="text-[10px] bg-muted text-foreground px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Active</span>
           </h3>
         </div>
-        <p className="text-sm text-indigo-700/80 dark:text-indigo-300/80 mt-2 relative z-10 flex items-start gap-2">
+        <p className="text-sm text-foreground mt-2 relative z-10 flex items-start gap-2">
            <Lightbulb className="w-4 h-4 mt-0.5 shrink-0" />
            Monitoring patient data for potential insights. No immediate clinical recommendations found based on recent records.
         </p>
@@ -36,16 +36,16 @@ const CDSSPanel: React.FC<CDSSPanelProps> = ({ patient, records }) => {
   }
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800/50 card-shadow overflow-hidden">
+    <div className="bg-card rounded-sm border border-border card-shadow overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-indigo-100 dark:border-indigo-800/50 flex items-center justify-between bg-white/50 dark:bg-black/20">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/40">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
-            <Brain className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-2 bg-muted rounded-sm">
+            <Brain className="w-5 h-5 text-foreground" />
           </div>
-          <h3 className="font-semibold text-indigo-900 dark:text-indigo-100">AI Clinical Assistant</h3>
+          <h3 className="font-semibold text-foreground">AI Clinical Assistant</h3>
         </div>
-        <span className="text-[10px] bg-indigo-600 text-white px-2 py-1 rounded-full font-bold uppercase tracking-wide">
+        <span className="text-[10px] bg-primary text-primary-foreground px-2 py-1 rounded-sm font-bold uppercase tracking-wide">
           Insights Generated
         </span>
       </div>
@@ -103,7 +103,7 @@ const CDSSPanel: React.FC<CDSSPanelProps> = ({ patient, records }) => {
         )}
       </div>
 
-      <div className="px-5 py-3 bg-indigo-50/50 dark:bg-indigo-900/10 border-t border-indigo-100 dark:border-indigo-800/50 text-[11px] text-indigo-500/80 dark:text-indigo-400/60 text-center">
+      <div className="px-5 py-3 bg-muted border-t border-border text-[11px] text-muted-foreground text-center">
         Disclaimer: This is an AI assistant tool. Final medical decisions must be made by a qualified healthcare professional.
       </div>
     </div>

@@ -233,9 +233,77 @@ mockPatients.forEach((p, i) => {
     if (i % 3 === 0) p.allergies = DEMO_ALLERGIES[i % DEMO_ALLERGIES.length];
 });
 
+// ─── Demo identities (see demoAccounts.ts) ───────────────
+// The Maharashtra data belongs to the demo hospital and its demo doctor.
+mockPatients.forEach(p => { if (p.created_by === 'staff-mh-1') p.created_by = 'demo-doctor'; });
+mockRecords.forEach(r => {
+    if (r.created_by === 'staff-mh-1') { r.created_by = 'demo-doctor'; r.creator_name = 'Dr. Octopus'; }
+});
+
+const _ago = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
+
+// Demo patient: Swayam, with a realistic recent history
+mockPatients.unshift({
+    id: 'pt-demo-swayam', patient_id: 'HSS-DEMO-001', full_name: 'Swayam Sonawane', phone: '+91 99000-00001',
+    email: 'swayam@mail.com', gender: 'Male', date_of_birth: '1998-04-12', blood_type: 'B+', allergies: 'Penicillin',
+    emergency_contact: '+91 98200-11122', address: 'Dadar West', city: 'Mumbai', state: 'Maharashtra', country: 'India',
+    pincode: '400028', latitude: 19.0178, longitude: 72.8478, auth_user_id: 'demo-patient', organization_id: 'org-mh-1',
+    status: 'active', created_by: 'demo-doctor', created_at: _ago(120), updated_at: _ago(2),
+});
+
+const _demoRec = (n: number, record_type: MedicalRecord['record_type'], title: string, description: string, diagnosis: string, icd_code: string, days: number): MedicalRecord => ({
+    id: `rec-demo-${n}`, patient_id: 'pt-demo-swayam', record_type, title, description, diagnosis, icd_code, icd_label: diagnosis,
+    created_by: 'demo-doctor', creator_name: 'Dr. Octopus', organization_id: 'org-mh-1',
+    created_at: _ago(days), updated_at: _ago(days), city: 'Mumbai', state: 'Maharashtra', pincode: '400028', status: 'ACTIVE',
+});
+
+mockRecords.unshift(
+    _demoRec(1, 'Prescription', 'Acute upper respiratory infection', 'Sore throat and cough for 3 days. Advised rest, fluids and the medicines below.', 'Upper respiratory tract infection', 'J06', 3),
+    _demoRec(2, 'Lab Report', 'Complete Blood Count', 'CBC ordered to check for infection markers.', 'Mild leukocytosis', 'D72.8', 4),
+    _demoRec(3, 'Clinical Note', 'Follow-up: blood pressure screening', 'BP 124/80 mmHg. Lifestyle advice given; recheck in 6 months.', 'Hypertension screening', 'Z13.6', 30),
+    _demoRec(4, 'Prescription', 'Seasonal allergic rhinitis', 'Sneezing and watery eyes. Started on an antihistamine course.', 'Allergic rhinitis', 'J30', 70),
+    _demoRec(5, 'Lab Report', 'Lipid profile', 'Fasting lipid profile as part of the annual health check.', 'Borderline cholesterol', 'E78', 90),
+    _demoRec(6, 'Clinical Note', 'Annual health check', 'General examination normal. Vaccinations up to date.', 'General examination', 'Z00', 120),
+);
+
+export const mockPrescriptions = [
+    { id: 'rx-demo-1', record_id: 'rec-demo-1', medicine_name: 'Paracetamol', dosage: '500 mg', frequency: 'Thrice daily', duration: '5 days' },
+    { id: 'rx-demo-2', record_id: 'rec-demo-1', medicine_name: 'Cetirizine', dosage: '10 mg', frequency: 'Once daily at night', duration: '5 days' },
+    { id: 'rx-demo-3', record_id: 'rec-demo-4', medicine_name: 'Montelukast', dosage: '10 mg', frequency: 'Once daily', duration: '14 days' },
+];
+
+export const mockLabReports = [
+    {
+        id: 'lab-demo-1', record_id: 'rec-demo-2', lab_name: 'Bhartiya Hospital Diagnostics', doctor_name: 'Dr. Octopus',
+        patient_age: 27, patient_gender: 'Male', notes: 'WBC slightly raised, consistent with a mild infection.',
+        test_panels: [{
+            panelId: 'cbc',
+            values: {
+                hemoglobin: { value: '14.6', status: 'normal' }, rbc: { value: '5.1', status: 'normal' },
+                wbc: { value: '11800', status: 'borderline' }, platelets: { value: '262000', status: 'normal' },
+                hematocrit: { value: '44', status: 'normal' }, neutrophils: { value: '72', status: 'borderline' },
+                lymphocytes: { value: '22', status: 'normal' },
+            },
+        }],
+        created_at: _ago(4),
+    },
+    {
+        id: 'lab-demo-2', record_id: 'rec-demo-5', lab_name: 'Bhartiya Hospital Diagnostics', doctor_name: 'Dr. Octopus',
+        patient_age: 27, patient_gender: 'Male', notes: 'Diet and exercise advised; repeat in 6 months.',
+        test_panels: [{
+            panelId: 'lipid_profile',
+            values: {
+                total_cholesterol: { value: '214', status: 'borderline' }, ldl: { value: '128', status: 'borderline' },
+                hdl: { value: '48', status: 'normal' }, triglycerides: { value: '138', status: 'normal' }, vldl: { value: '28', status: 'normal' },
+            },
+        }],
+        created_at: _ago(90),
+    },
+];
+
 // ─── Organizations ─────────────────────────────────────────
 export const mockOrganizations: Organization[] = [
-    { id: 'org-mh-1', name: 'KEM Hospital Mumbai', type: 'Hospital', email: 'admin@kem.gov.in', phone: '+91 22-2410-7000', address: 'Parel', status: 'approved', city: 'Mumbai', state: 'Maharashtra', country: 'India', pincode: '400012', certificate_status: 'verified', staff_count: 24, patient_count: 456, created_at: '2025-06-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+    { id: 'org-mh-1', name: 'Bhartiya Hospital', type: 'Hospital', email: 'bhartiyahospital@gmail.com', phone: '+91 22-2410-7000', address: 'Dadar West', status: 'approved', city: 'Mumbai', state: 'Maharashtra', country: 'India', pincode: '400012', certificate_status: 'verified', staff_count: 24, patient_count: 456, created_at: '2025-06-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
     { id: 'org-dl-1', name: 'AIIMS New Delhi', type: 'Hospital', email: 'admin@aiims.edu', phone: '+91 11-2659-3308', address: 'Ansari Nagar', status: 'approved', city: 'New Delhi', state: 'Delhi', country: 'India', pincode: '110029', certificate_status: 'verified', staff_count: 60, patient_count: 890, created_at: '2025-05-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
     { id: 'org-tn-1', name: 'Rajiv Gandhi Govt Hospital', type: 'Hospital', email: 'admin@rggh.gov.in', phone: '+91 44-2530-5000', address: 'Park Town', status: 'approved', city: 'Chennai', state: 'Tamil Nadu', country: 'India', pincode: '600003', certificate_status: 'verified', staff_count: 38, patient_count: 502, created_at: '2025-08-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
     { id: 'org-ka-1', name: 'Victoria Hospital', type: 'Hospital', email: 'admin@victoria.gov.in', phone: '+91 80-2670-1150', address: 'Fort Rd', status: 'approved', city: 'Bengaluru', state: 'Karnataka', country: 'India', pincode: '560002', certificate_status: 'verified', staff_count: 30, patient_count: 410, created_at: '2025-07-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
@@ -249,7 +317,7 @@ export const mockOrganizations: Organization[] = [
 
 // ─── Staff ────────────────────────────────────────────────
 export const mockStaff: User[] = [
-    { id: 'staff-mh-1', email: 'ravi.kulkarni@kem.gov.in', full_name: 'Dr. Ravi Kulkarni', role: 'doctor', organization_id: 'org-mh-1', phone: '+91 98200-20001', created_at: '2025-06-01T00:00:00Z', updated_at: '2025-06-01T00:00:00Z' },
+    { id: 'demo-doctor', email: 'droctopus@mail.com', full_name: 'Dr. Octopus', role: 'doctor', organization_id: 'org-mh-1', phone: '+91 98200-20001', created_at: '2025-06-01T00:00:00Z', updated_at: '2025-06-01T00:00:00Z' },
     { id: 'staff-dl-1', email: 'anjali.singh@aiims.edu', full_name: 'Dr. Anjali Singh', role: 'doctor', organization_id: 'org-dl-1', phone: '+91 11000-20006', created_at: '2025-05-01T00:00:00Z', updated_at: '2025-05-01T00:00:00Z' },
     { id: 'staff-tn-1', email: 'anand.rajan@rggh.gov.in', full_name: 'Dr. Anand Rajan', role: 'doctor', organization_id: 'org-tn-1', phone: '+91 44000-20003', created_at: '2025-08-01T00:00:00Z', updated_at: '2025-08-01T00:00:00Z' },
     { id: 'staff-ka-1', email: 'preethi.sharma@victoria.gov.in', full_name: 'Dr. Preethi Sharma', role: 'doctor', organization_id: 'org-ka-1', phone: '+91 80000-20002', created_at: '2025-07-01T00:00:00Z', updated_at: '2025-07-01T00:00:00Z' },

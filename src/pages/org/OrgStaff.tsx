@@ -54,8 +54,8 @@ const OrgStaff = () => {
   }, [orgId]);
 
   return (
-    <DashboardLayout role="org">
-      <PageHeader
+    <DashboardLayout role="org" fit>
+      <PageHeader compact
         title="Staff Members"
         description="Manage your medical staff"
         action={

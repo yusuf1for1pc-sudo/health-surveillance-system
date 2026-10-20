@@ -525,7 +525,7 @@ const StaffRecordCreate = () => {
   return (
     <DashboardLayout role="staff">
       <PageHeader title="Create Medical Record" description="Add a new record for a patient" />
-      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow max-w-2xl">
+      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow max-w-5xl">
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* Patient Search */}
@@ -798,12 +798,12 @@ const StaffRecordCreate = () => {
                     </div>
                   </div>
                 ) : (
-                  <label className="block border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
-                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                      <Upload className="w-6 h-6 text-slate-400 group-hover:text-primary" />
+                  <label className="block border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
+                    <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                      <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
                     </div>
-                    <p className="text-sm font-bold text-slate-600 group-hover:text-primary">Click to upload lab report</p>
-                    <p className="text-xs text-slate-400 mt-1">Gemini ML will automatically extract test results</p>
+                    <p className="text-sm font-bold text-muted-foreground group-hover:text-primary">Click to upload lab report</p>
+                    <p className="text-xs text-muted-foreground mt-1">Gemini ML will automatically extract test results</p>
                     <input
                       type="file"
                       className="hidden"
@@ -836,7 +836,7 @@ const StaffRecordCreate = () => {
                       </p>
                       
                       {/* Progress Bar Container */}
-                      <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                      <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                         <div 
                           className="bg-primary h-2.5 rounded-full transition-all duration-300 ease-out" 
                           style={{ width: `${Math.round(extractionProgress)}%` }}
@@ -871,8 +871,8 @@ const StaffRecordCreate = () => {
                         Dismiss
                       </button>
                     </div>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-56 overflow-y-auto">
-                      <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono leading-relaxed">{rawOcrText}</pre>
+                    <div className="bg-muted/50 border border-border rounded-xl p-4 max-h-56 overflow-y-auto">
+                      <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed">{rawOcrText}</pre>
                     </div>
                     <p className="text-xs text-muted-foreground italic">This is the raw text our scanner read from your image. If values are missing, try uploading a higher-resolution version of the report.</p>
                   </div>
@@ -908,7 +908,7 @@ const StaffRecordCreate = () => {
                           className="min-h-[200px] text-sm font-mono leading-relaxed bg-background"
                         />
                       ) : (
-                        <pre className="text-sm text-slate-800 font-mono whitespace-pre-wrap leading-relaxed">
+                        <pre className="text-sm text-foreground font-mono whitespace-pre-wrap leading-relaxed">
                           {description}
                         </pre>
                       )}
@@ -930,7 +930,7 @@ const StaffRecordCreate = () => {
                       onClick={handleSubmit}
                       className={`h-12 px-8 rounded-xl font-bold transition-all gap-2 shadow-xl ${
                         !selectedPatient 
-                          ? "bg-slate-300 text-slate-500 cursor-not-allowed opacity-70" 
+                          ? "bg-muted-foreground/40 text-muted-foreground cursor-not-allowed opacity-70" 
                           : "bg-primary text-white shadow-primary/25 hover:shadow-primary/40 active:scale-95"
                       }`}
                     >
@@ -1136,12 +1136,12 @@ const StaffRecordCreate = () => {
                 </button>
               </div>
             ) : (
-              <label className="block border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                  <Upload className="w-6 h-6 text-slate-400 group-hover:text-primary" />
+              <label className="block border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                  <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
                 </div>
-                <p className="text-sm font-bold text-slate-600 group-hover:text-primary">Click to upload medical document</p>
-                <p className="text-xs text-slate-400 mt-1">AI will automatically analyze your PDF or Image</p>
+                <p className="text-sm font-bold text-muted-foreground group-hover:text-primary">Click to upload medical document</p>
+                <p className="text-xs text-muted-foreground mt-1">AI will automatically analyze your PDF or Image</p>
                 <input
                   type="file"
                   className="hidden"
@@ -1167,7 +1167,7 @@ const StaffRecordCreate = () => {
             )}
 
             {showExtractionReview && extractedData && (
-              <div className="bg-white border shadow-xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="bg-card border shadow-xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
                 <div className="bg-primary/90 px-5 py-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-white" />
@@ -1191,16 +1191,16 @@ const StaffRecordCreate = () => {
                   {/* Basic Info Row */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Patient Identity</Label>
-                      <div className="flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Patient Identity</Label>
+                      <div className="flex items-center gap-2 text-sm font-bold text-foreground bg-muted/50 p-2 rounded-lg border border-border">
                         <UserIcon className="w-3.5 h-3.5 text-primary" />
-                        <span className="bg-blue-50 px-1.5 py-0.5 rounded text-primary">{extractedData.patient_name}</span>
-                        <span className="text-xs text-slate-400">{extractedData.age_gender}</span>
+                        <span className="bg-muted px-1.5 py-0.5 rounded text-primary">{extractedData.patient_name}</span>
+                        <span className="text-xs text-muted-foreground">{extractedData.age_gender}</span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Test Context</Label>
-                      <div className="flex items-center gap-2 text-sm font-bold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">Test Context</Label>
+                      <div className="flex items-center gap-2 text-sm font-bold text-foreground bg-muted/50 p-2 rounded-lg border border-border">
                         <Beaker className="w-3.5 h-3.5 text-primary" />
                         <span className="truncate">{extractedData.test_name}</span>
                       </div>
@@ -1210,20 +1210,20 @@ const StaffRecordCreate = () => {
                   {/* Test Results Section */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Extracted Test Parameters</Label>
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Extracted Test Parameters</Label>
                       <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{extractedData.test_results.length} Tests Found</span>
                     </div>
                     
                     <div className="border rounded-xl overflow-hidden">
-                      <div className="grid grid-cols-12 bg-slate-50 border-b px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                      <div className="grid grid-cols-12 bg-muted/50 border-b px-4 py-2 text-[10px] font-black text-muted-foreground uppercase tracking-tighter">
                         <div className="col-span-5">Test Name</div>
                         <div className="col-span-3">Result</div>
                         <div className="col-span-4">Normal Range</div>
                       </div>
                       <div className="divide-y">
                         {extractedData.test_results.map((res, i) => (
-                          <div key={i} className="grid grid-cols-12 px-4 py-3 items-center group hover:bg-slate-50/50 transition-colors">
-                            <div className="col-span-5 font-bold text-sm text-slate-700 pr-2">
+                          <div key={i} className="grid grid-cols-12 px-4 py-3 items-center group hover:bg-muted/30 transition-colors">
+                            <div className="col-span-5 font-bold text-sm text-foreground pr-2">
                               {editingExtracted ? (
                                 <Input 
                                   value={res.test} 
@@ -1240,7 +1240,7 @@ const StaffRecordCreate = () => {
                                   className="h-8 text-xs font-bold text-primary"
                                 />
                               ) : (
-                                <span className="text-sm font-black text-primary bg-blue-50 px-2 py-1 rounded-md">{res.result}</span>
+                                <span className="text-sm font-black text-primary bg-muted px-2 py-1 rounded-md">{res.result}</span>
                               )}
                             </div>
                             <div className="col-span-4">
@@ -1251,7 +1251,7 @@ const StaffRecordCreate = () => {
                                   className="h-8 text-xs"
                                 />
                               ) : (
-                                <span className="text-xs font-medium text-slate-500 italic">{res.range}</span>
+                                <span className="text-xs font-medium text-muted-foreground italic">{res.range}</span>
                               )}
                             </div>
                           </div>
@@ -1263,12 +1263,12 @@ const StaffRecordCreate = () => {
                   {/* Insights Section */}
                   <div className="grid grid-cols-1 gap-5 pt-2">
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">AI Suggested Diagnosis</Label>
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground">AI Suggested Diagnosis</Label>
                       <div className="relative">
                         <Textarea 
                           value={extractedData.diagnosis} 
                           onChange={(e) => setExtractedData({...extractedData, diagnosis: e.target.value})}
-                          className={`min-h-[60px] text-sm font-medium leading-relaxed ${editingExtracted ? "bg-white" : "bg-slate-50/50 border-slate-100"}`}
+                          className={`min-h-[60px] text-sm font-medium leading-relaxed ${editingExtracted ? "bg-card" : "bg-muted/30 border-border"}`}
                           readOnly={!editingExtracted}
                         />
                         <Sparkles className="absolute right-3 top-3 w-3.5 h-3.5 text-primary/30" />
@@ -1277,8 +1277,8 @@ const StaffRecordCreate = () => {
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Lab & Date</Label>
-                        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg text-[11px] font-bold text-slate-500 border border-slate-100">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Lab & Date</Label>
+                        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-[11px] font-bold text-muted-foreground border border-border">
                           <CalendarIcon className="w-3.5 h-3.5" />
                           <span>{extractedData.test_date}</span>
                           <span className="text-slate-200">|</span>
@@ -1302,8 +1302,8 @@ const StaffRecordCreate = () => {
                   </div>
                 </div>
                 
-                <div className="bg-slate-50 px-6 py-4 border-t flex items-center justify-between">
-                  <p className="text-[10px] font-bold text-slate-400 max-w-[200px] leading-tight italic">
+                <div className="bg-muted/50 px-6 py-4 border-t flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-muted-foreground max-w-[200px] leading-tight italic">
                     Note: Please verify all AI-extracted values against the original document before saving.
                   </p>
                   <Button 

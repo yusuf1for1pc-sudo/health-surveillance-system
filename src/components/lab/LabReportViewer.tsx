@@ -74,7 +74,7 @@ export default function LabReportViewer({ labReport, patientName, recordDate }: 
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {/* Print Button */}
             <div className="flex justify-end">
                 <Button variant="outline" size="sm" className="gap-2" onClick={handlePrint}>
@@ -91,12 +91,12 @@ export default function LabReportViewer({ labReport, patientName, recordDate }: 
                 </div>
 
                 {/* General Info */}
-                <div className="bg-card rounded-xl p-4 border mb-4">
-                    <div className="flex items-center gap-2 mb-3">
+                <div className="mb-3 rounded-sm border bg-muted/20 px-4 py-3">
+                    <div className="mb-2 flex items-center gap-2">
                         <FlaskConical className="w-4 h-4 text-primary" />
                         <h3 className="font-semibold text-foreground text-sm">Lab Report Details</h3>
                     </div>
-                    <div className="info-grid grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                    <div className="info-grid grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 xl:grid-cols-6">
                         {labReport.lab_name && (
                             <div><span className="label text-muted-foreground text-xs">Lab</span><p className="value font-medium">{labReport.lab_name}</p></div>
                         )}
@@ -124,19 +124,19 @@ export default function LabReportViewer({ labReport, patientName, recordDate }: 
                     const panelName = getPanelName(panelData.panelId);
 
                     return (
-                        <div key={idx} className="panel bg-card rounded-xl border mb-3 overflow-hidden">
-                            <div className="panel-title bg-primary/5 px-4 py-2.5 border-b">
+                        <div key={idx} className="panel mb-3 overflow-hidden rounded-sm border bg-card">
+                            <div className="panel-title border-b bg-muted/30 px-3 py-1.5">
                                 <h4 className="font-semibold text-foreground text-sm">{panelName}</h4>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b">
-                                            <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">Test</th>
-                                            <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">Result</th>
-                                            <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">Unit</th>
-                                            <th className="text-left px-4 py-2 text-xs text-muted-foreground font-medium">Reference</th>
-                                            <th className="text-center px-4 py-2 text-xs text-muted-foreground font-medium">Status</th>
+                                            <th className="text-left px-3 py-1.5 text-xs text-muted-foreground font-medium">Test</th>
+                                            <th className="text-left px-3 py-1.5 text-xs text-muted-foreground font-medium">Result</th>
+                                            <th className="text-left px-3 py-1.5 text-xs text-muted-foreground font-medium">Unit</th>
+                                            <th className="text-left px-3 py-1.5 text-xs text-muted-foreground font-medium">Reference</th>
+                                            <th className="text-center px-3 py-1.5 text-xs text-muted-foreground font-medium">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -148,11 +148,11 @@ export default function LabReportViewer({ labReport, patientName, recordDate }: 
 
                                             return (
                                                 <tr key={key} className={`border-b last:border-0 ${colors ? colors.bg : ''}`}>
-                                                    <td className="px-4 py-2 text-foreground">{field?.label || key}</td>
-                                                    <td className={`px-4 py-2 font-semibold ${colors ? colors.text : 'text-foreground'}`}>{val.value}</td>
-                                                    <td className="px-4 py-2 text-muted-foreground text-xs">{field?.unit || ''}</td>
-                                                    <td className="px-4 py-2 text-muted-foreground text-xs">{field ? getRefRangeText(field, gender) : '—'}</td>
-                                                    <td className="px-4 py-2 text-center">
+                                                    <td className="px-3 py-1.5 text-foreground">{field?.label || key}</td>
+                                                    <td className={`px-3 py-1.5 font-semibold ${colors ? colors.text : 'text-foreground'}`}>{val.value}</td>
+                                                    <td className="px-3 py-1.5 text-muted-foreground text-xs">{field?.unit || ''}</td>
+                                                    <td className="px-3 py-1.5 text-muted-foreground text-xs">{field ? getRefRangeText(field, gender) : '—'}</td>
+                                                    <td className="px-3 py-1.5 text-center">
                                                         {status && <div className={`inline-block w-2.5 h-2.5 rounded-full ${colors!.dot}`} title={status} />}
                                                     </td>
                                                 </tr>
@@ -167,7 +167,7 @@ export default function LabReportViewer({ labReport, patientName, recordDate }: 
 
                 {/* Notes */}
                 {labReport.notes && (
-                    <div className="notes bg-muted/30 rounded-xl p-4 border">
+                    <div className="notes rounded-sm border bg-muted/30 p-3">
                         <p className="text-xs font-medium text-muted-foreground mb-1">Notes / Observations</p>
                         <p className="text-sm text-foreground">{labReport.notes}</p>
                     </div>

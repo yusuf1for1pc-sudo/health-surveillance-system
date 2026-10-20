@@ -57,8 +57,8 @@ const StaffPatients = () => {
   });
 
   return (
-    <DashboardLayout role="staff">
-      <PageHeader
+    <DashboardLayout role="staff" fit>
+      <PageHeader compact
         title="My Patients"
         description={`${myPatients.length} patients under your care`}
         action={<Link to="/staff/patients/create"><Button><Plus className="w-4 h-4 mr-2" />Add Patient</Button></Link>}
@@ -72,7 +72,7 @@ const StaffPatients = () => {
               <div className="flex items-center gap-2">
                 <span className="font-medium">{item.name}</span>
                 {item.recheckDue && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30">
                     Recheck Due
                   </span>
                 )}
@@ -85,13 +85,13 @@ const StaffPatients = () => {
             key: "status", header: "Status",
             render: (value) => {
               const colors: Record<string, string> = {
-                'ACTIVE': 'bg-amber-100 text-amber-700 border-amber-200',
-                'RECOVERED': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                'CRITICAL': 'bg-rose-100 text-rose-700 border-rose-200',
-                'REFERRED': 'bg-purple-100 text-purple-700 border-purple-200',
+                'ACTIVE': 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
+                'RECOVERED': 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
+                'CRITICAL': 'bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/30',
+                'REFERRED': 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30',
               };
               const statusStr = String(value || 'ACTIVE');
-              const colorClass = colors[statusStr] || 'bg-gray-100 text-gray-700 border-gray-200';
+              const colorClass = colors[statusStr] || 'bg-muted text-foreground border-border';
               return (
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}>
                   {statusStr}

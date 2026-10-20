@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import PageHeader from "@/components/dashboard/PageHeader";
-import DataTable from "@/components/dashboard/DataTable";
+import { Panel, PanelGrid, Field } from "@/components/layout/Modular";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Loader2 } from "lucide-react";
+import { Loader2, Pill, ArrowUpRight, FlaskConical, History } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { recordPath } from "@/lib/patientNav";
 
 interface Prescription {
   id: string;
@@ -19,6 +20,8 @@ interface Prescription {
   medical_records: {
     creator_name: string;
     created_at: string;
+    created_by: string;
+    profiles: any;
   }[];
 }
 
@@ -49,10 +52,12 @@ const PatientPrescriptions = () => {
             medical_records!inner (
               creator_name,
               created_at,
-              patient_id
+              created_by,
+              patient_id,
+              profiles:created_by ( full_name )
             )
           `)
-          .eq('medical_records.patient_id', user.id) // Filter by current patient
+          .eq('medical_records.patient_id', user.id)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -80,40 +85,85 @@ const PatientPrescriptions = () => {
     return parts.length > 0 ? parts.join(", ") : "—";
   };
 
-  const tableData = prescriptions.map(p => ({
-    id: p.id,
-    record_id: p.record_id,
-    medication: p.medicine_name,
-    dosage: p.dosage || "—",
-    frequency: formatFrequency(p.frequency),
-    duration: p.duration || "—",
-    doctor: p.medical_records?.[0]?.creator_name || "Unknown",
-    date: new Date(p.medical_records?.[0]?.created_at || p.created_at).toLocaleDateString(),
-    status: "Active" // You could calculate this based on date + duration if needed
-  }));
+  // One card per visit (record), listing its medicines, newest first
+  const visits = (() => {
+    const map = new Map<string, { record_id: string; date: string; doctor: string; items: Prescription[] }>();
+    prescriptions.forEach((p) => {
+      const rec = p.medical_records?.[0];
+      const g = map.get(p.record_id) ?? {
+        record_id: p.record_id,
+        date: rec?.created_at || p.created_at,
+        doctor: rec?.creator_name || rec?.profiles?.full_name || "Unknown",
+        items: [],
+      };
+      g.items.push(p);
+      map.set(p.record_id, g);
+    });
+    return [...map.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  })();
 
   return (
-    <DashboardLayout role="patient">
-      <PageHeader title={t("prescriptions_title")} description={t("prescriptions_desc")} />
+    <DashboardLayout role="patient" fit>
+      <PageHeader compact title={t("prescriptions_title")} description={t("prescriptions_desc")} />
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : tableData.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-          {t("no_prescriptions")}
-        </div>
+      ) : visits.length === 0 ? (
+        <Panel><p className="text-sm text-muted-foreground">{t("no_prescriptions")}</p></Panel>
       ) : (
-        <DataTable
-          columns={[
-            { key: "medication", header: "Medication" },
-            { key: "dosage", header: "Dosage" },
-            { key: "frequency", header: "Frequency" },
-            { key: "duration", header: "Duration" },
-            { key: "doctor", header: t("by") },
-            { key: "date", header: "Date" },
-          ]}
-          data={tableData}
-          onRowClick={(item: any) => navigate(`/patient/history/${item.record_id}`)}
-        />
+        <PanelGrid className="lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)]">
+          <div className="grid content-start gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1 xl:grid-cols-2">
+            {visits.map((v) => (
+              <Panel
+                key={v.record_id}
+                title={new Date(v.date).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}
+                description={`Prescribed by ${v.doctor}`}
+                icon={<Pill className="h-5 w-5" />}
+                action={
+                  <Link
+                    to={recordPath({ id: v.record_id, record_type: "Prescription" })}
+                    className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Open prescription <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                }
+                bodyClassName="p-0"
+              >
+                <button
+                  onClick={() => navigate(recordPath({ id: v.record_id, record_type: "Prescription" }))}
+                  className="block w-full text-left transition-colors hover:bg-muted/30"
+                  aria-label="Open this prescription"
+                >
+                  <ul className="divide-y">
+                    {v.items.map((p) => (
+                      <li key={p.id} className="px-5 py-3.5">
+                        <div>
+                          <p className="font-medium">{p.medicine_name} <span className="font-normal text-muted-foreground">· {p.dosage || "—"}</span></p>
+                          <p className="text-sm text-muted-foreground">{formatFrequency(p.frequency)}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+              </Panel>
+            ))}
+          </div>
+
+          <aside className="space-y-5 lg:overflow-y-auto">
+            <Panel title="Summary" bodyClassName="py-1">
+              <Field inline icon={<Pill className="h-3.5 w-3.5" />} label="Medicines" value={prescriptions.length} />
+              <Field inline label="Prescriptions" value={visits.length} />
+              <Field inline label="Latest" value={new Date(visits[0].date).toLocaleDateString()} />
+            </Panel>
+            <Panel title="Go to" bodyClassName="space-y-2">
+              <Link to="/patient/reports" className="flex items-center gap-3 rounded-sm border px-3 py-2 text-sm transition-colors hover:bg-muted/50">
+                <FlaskConical className="h-4 w-4 text-muted-foreground" /> Lab reports <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Link>
+              <Link to="/patient/history" className="flex items-center gap-3 rounded-sm border px-3 py-2 text-sm transition-colors hover:bg-muted/50">
+                <History className="h-4 w-4 text-muted-foreground" /> Full history <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Link>
+            </Panel>
+          </aside>
+        </PanelGrid>
       )}
     </DashboardLayout>
   );

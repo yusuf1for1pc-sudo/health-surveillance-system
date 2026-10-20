@@ -57,7 +57,7 @@ const BOUNDS: Record<string, L.LatLngBoundsExpression> = {
 };
 
 // ─── Main Component (pure Leaflet — gradient heatmap) ─────
-export default function DiseaseHeatmap({ records, patients, selectedState, selectedCity, selectedWard, clusters, showClusters }: DiseaseHeatmapProps) {
+export default function DiseaseHeatmap({ records, patients, selectedState, selectedCity, selectedWard, clusters, showClusters, minHeight = 480 }: DiseaseHeatmapProps & { minHeight?: number }) {
     const mapRef = useRef<L.Map | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const heatLayerRef = useRef<any>(null); // Reference to the heat layer
@@ -135,11 +135,11 @@ export default function DiseaseHeatmap({ records, patients, selectedState, selec
                     <div class="text-xs p-1" style="min-width: 140px;">
                         <b class="text-sm block mb-1">${clusterWard} Cluster</b>
                         <div class="flex justify-between border-b pb-1 mb-1">
-                            <span class="text-slate-500">Disease:</span> 
+                            <span class="text-muted-foreground">Disease:</span> 
                             <span class="font-medium">${clusterDisease}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">Cases:</span> 
+                            <span class="text-muted-foreground">Cases:</span> 
                             <span class="font-bold text-red-600">${c.size}</span>
                         </div>
                     </div>
@@ -242,7 +242,7 @@ export default function DiseaseHeatmap({ records, patients, selectedState, selec
     // NEVER unmount the map. Provide overlays instead.
     return (
         <div className="w-full h-full relative border rounded-lg overflow-hidden card-shadow">
-            <div ref={containerRef} className="w-full h-full" style={{ minHeight: 480, zIndex: 0 }} />
+            <div ref={containerRef} className="w-full h-full" style={{ minHeight, zIndex: 0 }} />
 
             {/* Loading Overlay */}
             {isZooming && (

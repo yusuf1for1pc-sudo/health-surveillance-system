@@ -13,7 +13,26 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        serif: ["var(--font-serif)"],
+        sans: ["var(--font-sans)"],
+      },
       colors: {
+        rail: {
+          DEFAULT: "hsl(var(--rail-bg))",
+          active: "hsl(var(--rail-active))",
+          "active-foreground": "hsl(var(--rail-active-foreground))",
+        },
+        "role-accent": "hsl(var(--role-accent))",
+        highlight: {
+          DEFAULT: "hsl(var(--highlight))",
+          foreground: "hsl(var(--highlight-foreground))",
+        },
+        "highlight-ink": "hsl(var(--highlight-ink))",
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        danger: "hsl(var(--danger))",
+        info: "hsl(var(--info))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

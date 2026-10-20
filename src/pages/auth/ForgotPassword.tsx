@@ -1,3 +1,4 @@
+import { useBackToLanding } from "@/hooks/use-back-to-landing";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const ForgotPassword = () => {
+  useBackToLanding();
   const [submitted, setSubmitted] = useState(false);
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="w-12 h-12 rounded-full bg-accent text-accent-foreground flex items-center justify-center mx-auto mb-4">✉</div>
+          <div className="w-12 h-12 rounded-sm bg-accent text-accent-foreground flex items-center justify-center mx-auto mb-4">✉</div>
           <h1 className="text-2xl font-semibold text-foreground">Check your email</h1>
           <p className="text-muted-foreground mt-2">We sent a password reset link to your email address.</p>
           <Link to="/login"><Button variant="outline" className="mt-6">Back to Login</Button></Link>
@@ -21,7 +23,7 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-foreground">Forgot Password</h1>

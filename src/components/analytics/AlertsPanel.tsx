@@ -27,9 +27,9 @@ const ALERT_NOTIFICATIONS = [
 ];
 
 const severityStyles = {
-    high: "bg-red-50 border-red-100 text-red-900",
-    medium: "bg-yellow-50 border-yellow-100 text-yellow-900",
-    low: "bg-blue-50 border-blue-100 text-blue-900",
+    high: "bg-red-50 dark:bg-red-500/15 border-red-100 dark:border-red-500/30 text-red-900 dark:text-red-300",
+    medium: "bg-yellow-50 dark:bg-yellow-500/15 border-yellow-100 dark:border-yellow-500/30 text-yellow-900 dark:text-yellow-300",
+    low: "bg-muted border-border text-foreground",
 };
 
 export default function AlertsPanel({ alerts = [] }: { alerts?: any[] }) {
@@ -37,13 +37,13 @@ export default function AlertsPanel({ alerts = [] }: { alerts?: any[] }) {
     const displayAlerts = alerts.length > 0 ? alerts : ALERT_NOTIFICATIONS;
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col h-full overflow-hidden">
-            <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
+        <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/50 flex items-center justify-between">
                 <h3 className="font-semibold text-sm text-gray-800 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400" />
                     Recent Alerts
                 </h3>
-                <span className="bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                <span className="bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                     {displayAlerts.length}
                 </span>
             </div>
@@ -66,8 +66,8 @@ export default function AlertsPanel({ alerts = [] }: { alerts?: any[] }) {
                 ))}
             </div>
 
-            <div className="p-2 border-t border-gray-50 bg-gray-50/30 text-center">
-                <button className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
+            <div className="p-2 border-t border-border bg-muted/30 text-center">
+                <button className="text-xs font-medium text-foreground hover:text-foreground transition-colors">
                     View All Alerts →
                 </button>
             </div>

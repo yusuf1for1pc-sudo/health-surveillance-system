@@ -29,8 +29,8 @@ const StaffRecords = () => {
   }));
 
   return (
-    <DashboardLayout role="staff">
-      <PageHeader
+    <DashboardLayout role="staff" fit>
+      <PageHeader compact
         title="Medical Records"
         description={`${myRecords.length} records`}
         action={<Link to="/staff/records/create"><Button><Plus className="w-4 h-4 mr-2" />New Record</Button></Link>}

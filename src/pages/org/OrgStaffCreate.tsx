@@ -87,7 +87,7 @@ const OrgStaffCreate = () => {
       {/* Feedback */}
       {feedback && (
         <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 text-sm ${feedback.type === "success"
-          ? "bg-green-500/10 text-green-700 border border-green-200"
+          ? "bg-green-500/10 text-green-700 dark:text-green-300 border border-green-200"
           : "bg-red-500/10 text-red-700 border border-red-200"
           }`}>
           {feedback.type === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
@@ -95,8 +95,8 @@ const OrgStaffCreate = () => {
         </div>
       )}
 
-      <div className="bg-card rounded-xl p-4 sm:p-6 card-shadow max-w-lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-card rounded-sm border p-4 sm:p-6 max-w-4xl">
+        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>Full Name</Label>
             <Input
@@ -177,7 +177,7 @@ const OrgStaffCreate = () => {
               </label>
             )}
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2 md:col-span-2">
             <Button type="submit" className="h-11 sm:h-10" disabled={submitting}>
               {submitting ? (
                 <span className="flex items-center gap-2">
