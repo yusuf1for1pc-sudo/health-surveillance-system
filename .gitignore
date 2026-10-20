@@ -27,3 +27,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python caches and local secrets
+__pycache__/
+*.pyc
+backend/.env
+backend/seed/.env
+
+# Scratch output
+backend/error_tmp.txt
+seed_error.txt
