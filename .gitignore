@@ -37,3 +37,5 @@ backend/seed/.env
 # Scratch output
 backend/error_tmp.txt
 seed_error.txt
+
+supabase/.temp/
