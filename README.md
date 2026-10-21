@@ -8,6 +8,34 @@ By combining **digital health records with surveillance analytics**, Tempest hel
 
 ---
 
+# 📸 Screenshots
+
+| Landing | Sign in |
+| --- | --- |
+| ![Landing](docs/screenshots/landing.png) | ![Sign in](docs/screenshots/login.png) |
+
+| Government workspace | Disease surveillance matrix |
+| --- | --- |
+| ![Government workspace](docs/screenshots/gov-workspace.png) | ![Disease matrix](docs/screenshots/gov-disease-matrix.png) |
+
+| Surveillance overview | Outbreak simulator |
+| --- | --- |
+| ![Surveillance](docs/screenshots/gov-surveillance.png) | ![Simulator](docs/screenshots/gov-simulator.png) |
+
+| Doctor workspace | Patient workspace |
+| --- | --- |
+| ![Doctor](docs/screenshots/doctor-workspace.png) | ![Patient](docs/screenshots/patient-workspace.png) |
+
+| Patient history | Organization workspace |
+| --- | --- |
+| ![Patient history](docs/screenshots/patient-history.png) | ![Organization](docs/screenshots/org-workspace.png) |
+
+| Admin workspace | Dark theme |
+| --- | --- |
+| ![Admin](docs/screenshots/admin-workspace.png) | ![Dark theme](docs/screenshots/gov-workspace-dark.png) |
+
+---
+
 # 🔗 Demo / Access
 
 **Repository:**
