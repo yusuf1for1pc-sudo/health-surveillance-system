@@ -14,9 +14,9 @@ By combining **digital health records with surveillance analytics**, Tempest hel
 | --- | --- |
 | ![Landing](docs/screenshots/landing.png) | ![Sign in](docs/screenshots/login.png) |
 
-| Government workspace | Disease surveillance matrix |
+| Government workspace | Live disease map |
 | --- | --- |
-| ![Government workspace](docs/screenshots/gov-workspace.png) | ![Disease matrix](docs/screenshots/gov-disease-matrix.png) |
+| ![Government workspace](docs/screenshots/gov-workspace.png) | ![Disease map](docs/screenshots/gov-map.webp) |
 
 | Surveillance overview | Outbreak simulator |
 | --- | --- |
